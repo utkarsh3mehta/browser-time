@@ -6,7 +6,6 @@ chrome.runtime.onInstalled.addListener(() => {
     );
   } else {
     const request = window.indexedDB.open("browserTime_db", 1);
-
     request.onerror = function (ev) {
       console.error("request error code", request.errorCode);
       console.error("Error opening DB:", ev.stack || ev);
@@ -33,6 +32,63 @@ chrome.runtime.onInstalled.addListener(() => {
     };
     request.onsuccess = function (ev) {
       db = request.result;
+      // const addHistoryTransaction = db.transaction("history", "readwrite");
+      // const historyStore = addHistoryTransaction.objectStore("history");
+      // addHistoryTransaction.onerror = function (err) {
+      //   console.log("Error adding history to DB. No worries.");
+      // };
+      // addHistoryTransaction.oncomplete = function () {
+      //   console.log("Imported history to DB.");
+      // };
+      // fetching history items from previous 5 days
+      const now = new Date();
+      now.setDate(now.getDate() - 5);
+      now.setHours(0);
+      now.setMinutes(0);
+      now.setSeconds(0);
+      const start = now.setMilliseconds(0);
+      const fiveMinute = 60 * 5;
+      chrome.history.search(
+        {
+          text: "",
+          startTime: start,
+          maxResults: 500,
+        },
+        (historyItems) => {
+          // const addHistoryTransaction = db.transaction("history", "readwrite");
+          // const historyStore = addHistoryTransaction.objectStore("history");
+          // addHistoryTransaction.onerror = function (err) {
+          //   console.log("Error adding history to DB. No worries.");
+          // };
+          // addHistoryTransaction.oncomplete = function () {
+          //   console.log("Imported history to DB.");
+          // };
+          for (const hI of historyItems) {
+            let url = new URL(hI.url);
+            chrome.history.getVisits({ url: hI.url }, (visitItems) => {
+              for (const vI of visitItems) {
+                const addHistoryTransaction = db.transaction(
+                  "history",
+                  "readwrite"
+                );
+                const historyStore =
+                  addHistoryTransaction.objectStore("history");
+                addHistoryTransaction.onerror = function (err) {};
+                addHistoryTransaction.oncomplete = function () {};
+                let request = historyStore.add({
+                  url: hI.url,
+                  domain: url.host,
+                  starttime: vI.visitTime,
+                  endtime: vI.visitTime + fiveMinute,
+                  date: new Date(vI.visitTime).toDateString(),
+                  timespent: 300,
+                });
+                request.onsuccess = function () {};
+              }
+            });
+          }
+        }
+      );
     };
   }
 });
