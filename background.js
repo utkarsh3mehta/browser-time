@@ -5,7 +5,7 @@ chrome.runtime.onInstalled.addListener(() => {
       "Indexed DB is not a part of your browser. Will not be able to use this extension"
     );
   } else {
-    const request = window.indexedDB.open("browserTime_db", 1);
+    const request = window.indexedDB.open("browserTime_db", 2);
     request.onerror = function (ev) {
       console.error("request error code", request.errorCode);
       console.error("Error opening DB:", ev.stack || ev);
@@ -16,8 +16,8 @@ chrome.runtime.onInstalled.addListener(() => {
         keypath: "id",
         autoIncrement: true,
       });
-      quotaStore.createIndex("url", "url", { unique: true });
-      quotaStore.createIndex("domain", "domain", { unique: false });
+      quotaStore.createIndex("url", "url", { unique: false });
+      quotaStore.createIndex("domain", "domain", { unique: true });
       quotaStore.createIndex("quota", "quota", { unique: false });
       quotaStore.transaction.oncomplete = function () {};
       let historyStore = db.createObjectStore("history", {
@@ -29,6 +29,11 @@ chrome.runtime.onInstalled.addListener(() => {
       historyStore.createIndex("date", "date", { unique: false });
       historyStore.createIndex("timespent", "timespent", { unique: false });
       historyStore.transaction.oncomplete = function () {};
+      let meta = db.createObjectStore("meta-data", {
+        keypath: "id",
+        autoIncrement: true,
+      })
+      meta.createIndex("type", "type", { unique: true });
       // fetching history items from previous 5 days and 500 records
       const now = new Date();
       now.setDate(now.getDate() - 5);
@@ -103,6 +108,90 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         payload: res,
       });
     });
+  }
+});
+
+chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
+  console.log("tab activated");
+  chrome.tabs.get(tabId, (tab) => {
+    if (tab.pendingUrl) {
+      addHistory(
+        tab.pendingUrl,
+        new URL(tab.pendingUrl).host,
+        tabId,
+        windowId,
+        tab.sessionid
+      ).then((res) => {
+        if (res) console.log("Added to history");
+        else console.log("Error adding to history");
+      });
+    } else if (tab.url) {
+      addHistory(
+        tab.url,
+        new URL(tab.url).host,
+        tabId,
+        windowId,
+        tab.sessionId
+      ).then((res) => {
+        if (res) console.log("Added to history");
+        else console.log("Error adding to history");
+      });
+    }
+  });
+});
+
+// // chrome.tabs.onHighlighted.addListener(({ tabIds, windowId }) => {
+// //   console.log('tab(s) highlighted');
+// //   console.log('tab ids', tabIds);
+// //   console.log('window id', windowId);
+// // })
+
+chrome.tabs.onCreated.addListener((tab) => {
+  if (tab.pendingUrl) {
+    addHistory(
+      tab.pendingUrl,
+      new URL(tab.pendingUrl).host,
+      tab.id,
+      tab.windowId,
+      tab.sessionid
+    ).then((res) => {
+      if (res) console.log("Added to history");
+      else console.log("Error adding to history");
+    });
+  } else if (tab.url) {
+    addHistory(
+      tab.url,
+      new URL(tab.url).host,
+      tab.id,
+      tab.windowId,
+      tab.sessionId
+    ).then((res) => {
+      if (res) console.log("Added to history");
+      else console.log("Error adding to history");
+    });
+  }
+});
+
+// chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+//   console.log("removing tab");
+//   console.log("tabId", tabId);
+//   console.log("removed tab info", removeInfo);
+// });
+
+// chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+//   console.log("tab replaced");
+//   console.log("added tab id", addedTabId);
+//   console.log("removed tab id", removedTabId);
+// });
+
+chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
+  console.log("update update update");
+  console.log("tab id", tabId);
+  console.log("change info", changedInfo);
+  console.log("updated tab", tab);
+  if ("url" in changedInfo) {
+    // update history
+    // use tabId
   }
 });
 
@@ -217,5 +306,63 @@ function getList(date = null) {
       };
       // };
     });
+  }
+}
+
+function addHistory(
+  url,
+  domain,
+  tabId = null,
+  windowId = null,
+  sessionId = null
+) {
+  if (db) {
+    const calcNow = new Date();
+    const now = calcNow.setMilliseconds(0);
+    const addTransaction = db.transaction("history", "readwrite");
+    const historyStore = addTransaction.objectStore("history");
+    return new Promise((resolve, reject) => {
+      addTransaction.oncomplete = function () {
+        resolve(true);
+      };
+      addTransaction.onerror = function (err) {
+        console.log("History adding transaction errored: ", err.stack || err);
+        resolve(false);
+      };
+      let request = historyStore.add({
+        url,
+        domain,
+        tabId,
+        windowId,
+        sessionId,
+        starttime: now,
+        timespent: 0,
+        date: calcNow.toDateString(),
+      });
+      request.onsuccess = function () {};
+    });
+  }
+}
+
+function updateHistory(url, tabId, windowId) {
+  if (db) {
+    const today = new Date().toDateString();
+    const getTransaction = db.transaction("history", "readwrite");
+    const getHistoryStore = getTransaction.objectStore("history");
+    getTransaction.oncomplete = function () {};
+    getTransaction.onerror = function (err) {
+      console.log("History get transaction errored: ", err.stack || err);
+    };
+    let request = getHistoryStore.getAll();
+    request.onsuccess = function (event) {
+      const result = event.target.result;
+      result
+        .filter((r) => r.date === today)
+        .filter((r) => r.url === url)
+        .filter((r) => r.windowId === windowId)
+        .filter((r) => r.tabId === tabId)
+        .sort();
+      console.log(result);
+    };
   }
 }
