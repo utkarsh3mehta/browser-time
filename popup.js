@@ -120,6 +120,8 @@ function prevDate(now) {
   yesterday.setSeconds(0);
   yesterday.setMilliseconds(0);
   dateLabel.innerText = yesterday.toDateString();
+  flash.innerText = "";
+  flash.classList.remove("bad");
   get_all(yesterday);
 }
 
@@ -134,6 +136,7 @@ function nextDate(now) {
     dateLabel.innerText = tomorrow.toDateString();
     get_all(tomorrow);
   } else {
-    alert("NO.");
+    flash.innerText = "Cannot be done.";
+    flash.classList.add("bad");
   }
 }
