@@ -29,47 +29,50 @@ chrome.runtime.onInstalled.addListener(() => {
       historyStore.createIndex("date", "date", { unique: false });
       historyStore.createIndex("timespent", "timespent", { unique: false });
       historyStore.transaction.oncomplete = function () {};
-      // fetching history items from previous 5 days and 500 records
-      const now = new Date();
-      now.setDate(now.getDate() - 5);
-      now.setHours(0);
-      now.setMinutes(0);
-      now.setSeconds(0);
-      const start = now.setMilliseconds(0);
-      const fiveMinute = 60 * 5;
-      chrome.history.search(
-        {
-          text: "",
-          startTime: start,
-          maxResults: 500,
-        },
-        (historyItems) => {
-          for (const hI of historyItems) {
-            let url = new URL(hI.url);
-            chrome.history.getVisits({ url: hI.url }, (visitItems) => {
-              for (const vI of visitItems) {
-                const addHistoryTransaction = db.transaction(
-                  "history",
-                  "readwrite"
-                );
-                const historyStore =
-                  addHistoryTransaction.objectStore("history");
-                addHistoryTransaction.onerror = function (err) {};
-                addHistoryTransaction.oncomplete = function () {};
-                let request = historyStore.add({
-                  url: hI.url,
-                  domain: url.host,
-                  starttime: vI.visitTime,
-                  endtime: vI.visitTime + fiveMinute,
-                  date: new Date(vI.visitTime).toDateString(),
-                  timespent: 300,
-                });
-                request.onsuccess = function () {};
-              }
-            });
+      // wait 2 seconds;
+      setTimeout(() => {
+        // fetching history items from previous 5 days and 500 records
+        const now = new Date();
+        now.setDate(now.getDate() - 5);
+        now.setHours(0);
+        now.setMinutes(0);
+        now.setSeconds(0);
+        const start = now.setMilliseconds(0);
+        const fiveMinute = 60 * 5;
+        chrome.history.search(
+          {
+            text: "",
+            startTime: start,
+            maxResults: 500,
+          },
+          (historyItems) => {
+            for (const hI of historyItems) {
+              let url = new URL(hI.url);
+              chrome.history.getVisits({ url: hI.url }, (visitItems) => {
+                for (const vI of visitItems) {
+                  const addHistoryTransaction = db.transaction(
+                    "history",
+                    "readwrite"
+                  );
+                  const historyStore =
+                    addHistoryTransaction.objectStore("history");
+                  addHistoryTransaction.onerror = function (err) {};
+                  addHistoryTransaction.oncomplete = function () {};
+                  let request = historyStore.add({
+                    url: hI.url,
+                    domain: url.host,
+                    starttime: vI.visitTime,
+                    endtime: vI.visitTime + fiveMinute,
+                    date: new Date(vI.visitTime).toDateString(),
+                    timespent: 300,
+                  });
+                  request.onsuccess = function () {};
+                }
+              });
+            }
           }
-        }
-      );
+        );
+      }, 2000);
     };
     request.onsuccess = function (ev) {
       db = request.result;
