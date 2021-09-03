@@ -7,7 +7,6 @@ chrome.runtime.onInstalled.addListener(() => {
   } else {
     const request = window.indexedDB.open("browserTime_db", 1);
     request.onerror = function (ev) {
-      console.error("request error code", request.errorCode);
       console.error("Error opening DB:", ev.stack || ev);
     };
     request.onupgradeneeded = function (ev) {
@@ -120,7 +119,7 @@ function addQuota(url, domain, quota) {
       };
 
       addTransaction.onerror = function (err) {
-        console.log("Quota adding transaction errorer: ", err.stack || err);
+        console.log("Quota adding transaction errored: ", err.stack || err);
         resolve(false);
       };
 

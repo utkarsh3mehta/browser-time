@@ -32,7 +32,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.message === "add_response") {
     flash.innerText = request.payload
       ? "Quota added successfully"
-      : "Error adding quota. Please try again";
+      : "Error adding quota. Please try again or maybe quota for this domain already exists";
     get_all();
   } else if (request.message === "get_all_response") {
     if (request.payload) {
