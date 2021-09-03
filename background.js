@@ -29,9 +29,6 @@ chrome.runtime.onInstalled.addListener(() => {
       historyStore.createIndex("date", "date", { unique: false });
       historyStore.createIndex("timespent", "timespent", { unique: false });
       historyStore.transaction.oncomplete = function () {};
-    };
-    request.onsuccess = function (ev) {
-      db = request.result;
       // fetching history items from previous 5 days and 500 records
       const now = new Date();
       now.setDate(now.getDate() - 5);
@@ -73,6 +70,9 @@ chrome.runtime.onInstalled.addListener(() => {
           }
         }
       );
+    };
+    request.onsuccess = function (ev) {
+      db = request.result;
     };
   }
 });
@@ -133,7 +133,6 @@ function getList(date = null) {
   if (date) {
     useDate = new Date(date);
   }
-  console.log(useDate.toDateString());
   if (db) {
     const getHistoryTransaction = db.transaction("history", "readonly");
     const historyStore = getHistoryTransaction.objectStore("history");
