@@ -12,6 +12,8 @@
         "default_popup": "popup.html"
     },
     "permissions": [
-        "history"
+        "unlimitedStorage",
+        "history",
+        "topSites"
     ]
 }

@@ -32,15 +32,7 @@ chrome.runtime.onInstalled.addListener(() => {
     };
     request.onsuccess = function (ev) {
       db = request.result;
-      // const addHistoryTransaction = db.transaction("history", "readwrite");
-      // const historyStore = addHistoryTransaction.objectStore("history");
-      // addHistoryTransaction.onerror = function (err) {
-      //   console.log("Error adding history to DB. No worries.");
-      // };
-      // addHistoryTransaction.oncomplete = function () {
-      //   console.log("Imported history to DB.");
-      // };
-      // fetching history items from previous 5 days
+      // fetching history items from previous 5 days and 500 records
       const now = new Date();
       now.setDate(now.getDate() - 5);
       now.setHours(0);
@@ -55,14 +47,6 @@ chrome.runtime.onInstalled.addListener(() => {
           maxResults: 500,
         },
         (historyItems) => {
-          // const addHistoryTransaction = db.transaction("history", "readwrite");
-          // const historyStore = addHistoryTransaction.objectStore("history");
-          // addHistoryTransaction.onerror = function (err) {
-          //   console.log("Error adding history to DB. No worries.");
-          // };
-          // addHistoryTransaction.oncomplete = function () {
-          //   console.log("Imported history to DB.");
-          // };
           for (const hI of historyItems) {
             let url = new URL(hI.url);
             chrome.history.getVisits({ url: hI.url }, (visitItems) => {
@@ -94,9 +78,6 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log("request", request);
-  console.log("sender", sender);
-  console.log("send response", sendResponse);
   if (request.message === "add") {
     let dbrequest = addQuota(
       request.payload.url,
@@ -110,7 +91,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     });
   } else if (request.message === "get_all") {
-    let dbrequest = getList();
+    let dbrequest;
+    if (request.payload) {
+      dbrequest = getList(request.payload.date);
+    } else {
+      dbrequest = getList();
+    }
     dbrequest.then((res) => {
       chrome.runtime.sendMessage({
         message: "get_all_response",
@@ -142,20 +128,95 @@ function addQuota(url, domain, quota) {
   }
 }
 
-function getList() {
+function getList(date = null) {
+  let useDate = new Date();
+  if (date) {
+    useDate = new Date(date);
+  }
+  console.log(useDate.toDateString());
   if (db) {
-    const getTransaction = db.transaction("quota", "readonly");
-    const quotaStore = getTransaction.objectStore("quota");
+    const getHistoryTransaction = db.transaction("history", "readonly");
+    const historyStore = getHistoryTransaction.objectStore("history");
     return new Promise((resolve, reject) => {
-      getTransaction.oncomplete = function (event) {};
-      getTransaction.onerror = function (err) {
-        console.log("Quota get transaction errored: ", err.stack || err);
+      getHistoryTransaction.oncomplete = function () {};
+      getHistoryTransaction.onerror = function (err) {
+        console.log("History get transaction errored: ", err.stack || err);
         resolve(false);
       };
-      let request = quotaStore.getAll();
-      request.onsuccess = function (event) {
-        resolve(event.target.result);
+      let historyRequest = historyStore.getAll();
+      historyRequest.onsuccess = function (event) {
+        let result = event.target.result;
+        let historyList = [];
+        chrome.topSites.get((mostVisitedUrls) => {
+          mostVisitedUrls.forEach((mvu) => {
+            let todayTopResults = result
+              .filter((r) => r.date === useDate.toDateString())
+              .filter((r) => r.url === mvu.url);
+            if (todayTopResults.length !== 0) {
+              let domain = new URL(mvu.url).host;
+              let count = todayTopResults.length;
+              let timespent = todayTopResults
+                .map((r) => r.timespent)
+                .reduce((acc, next) => acc + next, 0);
+              historyList.push({
+                url: mvu.url,
+                domain,
+                count,
+                timespent,
+                quota: null,
+              });
+            }
+          });
+          historyList = historyList.slice(0, 5);
+          const getQuotaTransaction = db.transaction("quota", "readonly");
+          const quotaStore = getQuotaTransaction.objectStore("quota");
+          let quotaRequest = quotaStore.getAll();
+          quotaRequest.onsuccess = function (event) {
+            let quotaResult = event.target.result;
+            if (historyList.length !== 0) {
+              historyList.forEach((hl) => {
+                let historyQuota = quotaResult.find(
+                  (r) => r.domain === hl.domain
+                );
+                if (historyQuota) hl.quota = historyQuota.quota;
+              });
+            }
+            quotaResult
+              .filter(
+                (q) => !historyList.map((hl) => hl.domain).includes(q.domain)
+              )
+              .forEach((q) => {
+                let todayQuotaResults = result
+                  .filter((r) => r.date === useDate.toDateString())
+                  .filter((r) => r.url === q.url);
+                if (todayQuotaResults.length !== 0) {
+                  let domain = q.domain;
+                  let count = todayQuotaResults.length;
+                  let timespent = todayQuotaResults
+                    .map((r) => r.timespent)
+                    .reduce((acc, next) => acc + next, 0);
+                  historyList.push({
+                    url: q.url,
+                    domain,
+                    count,
+                    timespent,
+                    quota: q.quota,
+                  });
+                } else {
+                  historyList.push({
+                    url: q.url,
+                    domain: q.domain,
+                    count: 0,
+                    timespent: 0,
+                    quota: q.quota,
+                  });
+                }
+              });
+            resolve(historyList);
+          };
+        });
       };
+      // };
     });
   }
 }
