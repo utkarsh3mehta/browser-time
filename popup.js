@@ -41,14 +41,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       payload.forEach((quota) => {
         const row = document.createElement("tr");
         let quotaNumber =
-          quota.quota < 60 ? quota.quota : (quota.quota / 60).toFixed(2);
+          quota.quota < 60 ? quota.quota : (quota.quota / 60).toFixed(1);
         let timespentNumber =
           quota.timespent < 60
             ? quota.timespent
-            : (quota.timespent / 60).toFixed(2);
+            : (quota.timespent / 60).toFixed(1);
         let overtime =
           quota.quota && quota.timespent > quota.quota
-            ? `+${((quota.timespent / quota.quota) * 100).toFixed(2)}%`
+            ? `+${((quota.timespent / quota.quota) * 100).toFixed(1)}%`
             : null;
         const iconColumn = document.createElement("td");
         iconColumn.innerText = quota.domain
@@ -65,13 +65,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         timespendColumn.innerText = timespent;
         row.appendChild(timespendColumn);
         const overtimeColumn = document.createElement("td");
-        overtimeColumn.classList.add("bad");
+        overtimeColumn.classList.add("bad", "overtime");
         overtimeColumn.innerText = overtime ? overtime : "";
         row.appendChild(overtimeColumn);
         const quotaColumn = document.createElement("td");
         if (quota.quota) {
           quotaColumn.innerText =
             quota.quota < 60 ? `${quotaNumber}m` : `${quotaNumber}h`;
+          quotaColumn.classList.add("quota");
         } else {
           let setActionButton = document.createElement("button");
           setActionButton.classList.add("button", "pointer");
