@@ -5,11 +5,45 @@
     <link rel="stylesheet" href="style.css">
     <style>
         .selected {
-            color: darkblue;
+            color: #4275d1;
+        }
+
+        .bold {
+            font-weight: bold;
         }
 
         .bad {
             color: var(--error);
+        }
+
+        .header-nav label {
+            font-weight: bold;
+        }
+
+        table.table tbody:before {
+            content: "@";
+            display: block;
+            line-height: 10px;
+            text-indent: -99999px;
+        }
+
+        table.table tr th {
+            font-size: 12px;
+            font-weight: normal;
+            color: lightgray;
+        }
+
+        table.table tr td {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        table.table tr td.overtime {
+            text-align: left;
+        }
+
+        table.table tr td.quota {
+            color: gray;
         }
 
         table.table tr th,
@@ -18,9 +52,11 @@
         }
 
         button.button {
+            font-weight: bold;
+            font-size: 14px;
             background: none;
             border: none;
-            color: gray;
+            color: lightgray;
         }
 
         button.button:hover {
@@ -32,38 +68,38 @@
 
 <body style="min-width: 400px;">
     <div class="d-flex column">
-        <div class="d-flex center py-half" style="background-color: gainsboro;">
-            <div class="d-flex column center align-center selected">
-                <label>Icon</label>
-                <label>Today</label>
+        <div class="d-flex center py-half header-nav" style="background-color: #f8f8f8;">
+            <div class="d-flex column center align-center">
+                <img src="assets/clock-regular.svg" alt="clock_icon" />
+                <label class="selected">Today</label>
             </div>
         </div>
         <div class="d-flex column">
-            <label class="p-half" id="flash"></label>
+            <label id="flash" class="self-align-center"></label>
             <table class="table p-half">
                 <thead>
                     <tr>
-                        <th></th>
-                        <th>Count</th>
-                        <th>Time</th>
-                        <th></th>
-                        <th>Quota</th>
+                        <th class="col-1"></th>
+                        <th class="col-2">Count</th>
+                        <th class="col-2">Time</th>
+                        <th class="col-4"></th>
+                        <th class="col-3">Quota</th>
                     </tr>
                 </thead>
-                <tbody id="table-body">
+                <tbody class="mt-1" id="table-body">
                 </tbody>
             </table>
             <form id="domain-form" class="d-flex p-half mb-half c-g-half">
-                <input class="p-half" type="url" name="url" id="url" placeholder="enter url" />
-                <input class="p-half" type="number" name="quota" id="quota" placeholder="set quota" />
+                <input class="p-half" type="url" name="url" id="url" placeholder="Enter URL (include HTTP(s) too}" />
+                <input class="p-half" type="number" name="quota" id="quota" placeholder="Set quota (minutes)" />
                 <button type="submit" class="px-half">Add</button>
             </form>
-            <hr>
-            <div class="d-flex space-between p-half">
+            <hr style="height: 0px; border: 1px solid lightgray;">
+            <div class="d-flex space-between py-1 px-2">
                 <div class="d-flex space-between c-g-1">
-                    <label class="pointer" id="prev-day-label">&lt;</label>
+                    <label class="pointer" id="prev-day-label">&#9664;</label>
                     <label id="date">Date comes here</label>
-                    <label class="pointer" id="next-day-label">&gt;</label>
+                    <label class="pointer" id="next-day-label">&#9654;</label>
                 </div>
                 <div class="d-flex c-g-1">
                     <label class="selected pointer">Daily</label>
