@@ -43,7 +43,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       payload.forEach((quota) => {
         const row = document.createElement("tr");
         let quotaNumber =
-          quota.quota < oneHour ? (quota.quota / oneMinute).toFixed(1) : (quota.quota / oneHour).toFixed(1);
+          quota.quota < oneHour
+            ? (quota.quota / oneMinute).toFixed(1)
+            : (quota.quota / oneHour).toFixed(1);
         let timespentNumber =
           quota.timespent < oneHour
             ? (quota.timespent / oneMinute).toFixed(1)
@@ -53,17 +55,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             ? `+${((quota.timespent / quota.quota) * 100).toFixed(1)}%`
             : null;
         const iconColumn = document.createElement("td");
-        iconColumn.innerText = quota.domain
-          .split(".")
-          .map((d) => d[0])
-          .join(".");
+        const iconImage = document.createElement("img");
+        iconImage.setAttribute(
+          "src",
+          `chrome://favicon/${new URL(quota.url).protocol}//${quota.domain}`
+        );
+        iconImage.setAttribute(
+          "alt",
+          'ico'
+        );
+        iconImage.style.borderRadius = "50%";
+        iconImage.style.width = "20px";
+        iconImage.style.height = "20px";
+        iconImage.style.objectFit = "none";
+        iconColumn.appendChild(iconImage);
         row.appendChild(iconColumn);
         const countColumn = document.createElement("td");
         countColumn.innerText = `${quota.count}x`;
         row.appendChild(countColumn);
         const timespendColumn = document.createElement("td");
         let timespent =
-          quota.timespent < oneHour ? `${timespentNumber}m` : `${timespentNumber}h`;
+          quota.timespent < oneHour
+            ? `${timespentNumber}m`
+            : `${timespentNumber}h`;
         timespendColumn.innerText = timespent;
         row.appendChild(timespendColumn);
         const overtimeColumn = document.createElement("td");
