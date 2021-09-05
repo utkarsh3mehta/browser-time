@@ -5,7 +5,8 @@ const dbversion = 4,
   historyTableName = "historyv6",
   metaDataTableName = "metaDatav2";
 const oneSecond = 1000;
-const fiveMinute = 5 * 60 * 1000;
+const oneMinute = 60 * 1000;
+const defaultTimespent = 1 * 60 * 1000;
 const maxHistoryResult = 500;
 const onboardingLoadTime = 5000;
 
@@ -93,9 +94,9 @@ chrome.runtime.onInstalled.addListener(() => {
                     createdAt: now,
                     lastUpdatedAt: now,
                     starttime: vI.visitTime,
-                    endtime: vI.visitTime + fiveMinute,
+                    endtime: vI.visitTime + defaultTimespent,
                     date: new Date(vI.visitTime).toDateString(),
-                    timespent: fiveMinute,
+                    timespent: defaultTimespent,
                     count: 1,
                   });
                   request.onsuccess = function () {};
@@ -351,7 +352,7 @@ function addQuota(url, domain, quota) {
         // console.error("Quota adding transaction errored: ", err.stack || err);
         resolve(false);
       };
-      quotaStore.add({ url, domain, quota: quota * 1000 });
+      quotaStore.add({ url, domain, quota: quota * oneMinute });
     });
   }
 }
@@ -378,12 +379,16 @@ function getList(date = null) {
           mostVisitedUrls.forEach((mvu) => {
             let todayTopResults = result
               .filter((r) => r.date === useDate.toDateString())
-              .filter((r) => r.url === mvu.url);
+              .filter((r) => r.domain === new URL(mvu.url).host);
             if (todayTopResults.length !== 0) {
               let domain = new URL(mvu.url).host;
-              let count = todayTopResults.length;
+              let count = todayTopResults
+                .map((r) => ("count" in r && !!r.count ? r.count : 0))
+                .reduce((acc, next) => acc + next, 0);
               let timespent = todayTopResults
-                .map((r) => r.timespent)
+                .map((r) =>
+                  "timespent" in r && !!r.timespent ? r.timespent : 0
+                )
                 .reduce((acc, next) => acc + next, 0);
               historyList.push({
                 url: mvu.url,
@@ -418,12 +423,16 @@ function getList(date = null) {
               .forEach((q) => {
                 let todayQuotaResults = result
                   .filter((r) => r.date === useDate.toDateString())
-                  .filter((r) => r.url === q.url);
+                  .filter((r) => r.domain === q.domain);
                 if (todayQuotaResults.length !== 0) {
                   let domain = q.domain;
-                  let count = todayQuotaResults.length;
+                  let count = todayQuotaResults
+                    .map((r) => ("count" in r ** !!r.count ? r.count : 0))
+                    .reduce((acc, (next) => acc + next), 0);
                   let timespent = todayQuotaResults
-                    .map((r) => r.timespent)
+                    .map((r) =>
+                      "timespent" in r && !!r.timespent ? r.timespent : 0
+                    )
                     .reduce((acc, next) => acc + next, 0);
                   historyList.push({
                     url: q.url,

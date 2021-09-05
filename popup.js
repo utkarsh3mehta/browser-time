@@ -24,6 +24,8 @@ const form_domain = document.querySelector("form#domain-form");
 const table = document.getElementById("table-body");
 const prevLabel = document.getElementById("prev-day-label");
 const nextLabel = document.getElementById("next-day-label");
+const oneMinute = 1000 * 60;
+const oneHour = 1000 * 60 * 60;
 
 prevLabel.addEventListener("click", () => prevDate(dateLabel.innerText));
 nextLabel.addEventListener("click", () => nextDate(dateLabel.innerText));
@@ -41,11 +43,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       payload.forEach((quota) => {
         const row = document.createElement("tr");
         let quotaNumber =
-          quota.quota < 60 ? quota.quota : (quota.quota / 60).toFixed(1);
+          quota.quota < oneHour ? (quota.quota / oneMinute).toFixed(1) : (quota.quota / oneHour).toFixed(1);
         let timespentNumber =
-          quota.timespent < 60
-            ? quota.timespent
-            : (quota.timespent / 60).toFixed(1);
+          quota.timespent < oneHour
+            ? (quota.timespent / oneMinute).toFixed(1)
+            : (quota.timespent / oneHour).toFixed(1);
         let overtime =
           quota.quota && quota.timespent > quota.quota
             ? `+${((quota.timespent / quota.quota) * 100).toFixed(1)}%`
@@ -61,7 +63,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         row.appendChild(countColumn);
         const timespendColumn = document.createElement("td");
         let timespent =
-          quota.timespent < 60 ? `${timespentNumber}m` : `${timespentNumber}h`;
+          quota.timespent < oneHour ? `${timespentNumber}m` : `${timespentNumber}h`;
         timespendColumn.innerText = timespent;
         row.appendChild(timespendColumn);
         const overtimeColumn = document.createElement("td");
@@ -71,7 +73,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const quotaColumn = document.createElement("td");
         if (quota.quota) {
           quotaColumn.innerText =
-            quota.quota < 60 ? `${quotaNumber}m` : `${quotaNumber}h`;
+            quota.quota < oneHour ? `${quotaNumber}m` : `${quotaNumber}h`;
           quotaColumn.classList.add("quota");
         } else {
           let setActionButton = document.createElement("button");
