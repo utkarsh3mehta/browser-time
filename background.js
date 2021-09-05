@@ -1,12 +1,14 @@
+// variable initialation
 let db = null;
 const dbversion = 4,
   quotaTableName = "quotav4",
-  historyTableName = "historyv4",
-  metaDataTableName = "meta-datav2";
+  historyTableName = "historyv5",
+  metaDataTableName = "metaDatav2";
 const oneSecond = 1000;
 const fiveMinute = 5 * 60 * 1000;
 const maxHistoryResult = 500;
 const onboardingLoadTime = 5000;
+
 chrome.runtime.onInstalled.addListener(() => {
   if (!window.indexedDB) {
     console.error(
@@ -41,11 +43,9 @@ chrome.runtime.onInstalled.addListener(() => {
         ["tabId", "windowId", "url"],
         { unique: false }
       );
-      historyStore.createIndex(
-        "tabId, windowId, date",
-        ["tabId", "windowId", "date"],
-        { unique: false }
-      );
+      historyStore.createIndex("windowId, date", ["windowId", "date"], {
+        unique: false,
+      });
       let meta = db.createObjectStore(metaDataTableName, {
         keypath: "type",
       });
@@ -91,6 +91,7 @@ chrome.runtime.onInstalled.addListener(() => {
                     endtime: vI.visitTime + fiveMinute,
                     date: new Date(vI.visitTime).toDateString(),
                     timespent: fiveMinute,
+                    count: 1,
                   });
                   request.onsuccess = function () {};
                 }
@@ -136,11 +137,115 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
-  console.log("tab activated", tabId, windowId);
+  chrome.tabs.get(tabId, (tab) => {
+    if (ignoreURL(tab.url)) {
+      getMetaDataByType("currentTab")
+        .then((currentTab) => {
+          updateHistoryEndtime(
+            currentTab.tabId,
+            currentTab.windowId,
+            currentTab.url
+          )
+            .then((isUpdated) => {})
+            .catch((err) =>
+              console.error("error updating end time for previous tab")
+            );
+          updateHistoryStarttime(tabId, windowId, tab.url)
+            .then((isUpdated) => {})
+            .catch((err) =>
+              console.error("error updating start time of new tab")
+            );
+          updateCurrentTab(tabId, windowId, tab.sessionId, tab.url)
+            .then(() => {})
+            .catch((err) => console.error("error updating current tab info"));
+        })
+        .catch((err) => {
+          if (err instanceof Error) {
+            addCurrentTab(tabId, windowId, tab.sessionId, tab.url)
+              .then(() => {
+                getHistoryDateValue(windowId, new Date().toDateString())
+                  .then((list) => {
+                    list
+                      .filter((h) => h.date === new Date().toDateString())
+                      .filter((h) => h.tabId === tabId)
+                      .forEach((h) =>
+                        updateHistoryEndtime(h.tabId, h.windowId, h.url)
+                      );
+                  })
+                  .catch((err) => {
+                    addToHistory(
+                      null,
+                      tabId,
+                      windowId,
+                      tab.url,
+                      null,
+                      Date.now()
+                    )
+                      .then(() => {})
+                      .catch((err) =>
+                        console.error("error adding to history ")
+                      );
+                  });
+              })
+              .catch((err) => {
+                // error adding current tab
+                console.error("error adding current tab");
+              });
+          }
+        });
+    } else {
+      // switched to an ignoring protocol. Stop timer on prev tab
+      getMetaDataByType("currentTab")
+        .then((currentTab) => {
+          updateHistoryEndtime(
+            currentTab.tabId,
+            currentTab.windowId,
+            currentTab.url
+          )
+            .then(() => {})
+            .catch((err) =>
+              console.error("error updating end time for previous tab")
+            );
+          updateCurrentTab(tabId, windowId, tab.sessionId, tab.url)
+            .then(() => {})
+            .catch((err) => console.error("error updating current tab info"));
+        })
+        .catch((err) => {
+          addCurrentTab(tabId, windowId, tab.sessionId, tab.url)
+            .then(() => {
+              getHistoryDateValue(windowId, new Date().toDateString())
+                .then((list) => {
+                  list
+                    .filter((h) => h.date === new Date().toDateString())
+                    .filter((h) => h.tabId === tabId)
+                    .forEach((h) =>
+                      updateHistoryEndtime(h.tabId, h.windowId, h.url)
+                    );
+                })
+                .catch((err) => {
+                  addToHistory(null, tabId, windowId, tab.url, null, Date.now())
+                    .then(() => {})
+                    .catch((err) => console.error("Error adding to history "));
+                });
+            })
+            .catch((err) => {
+              // error adding current tab
+            });
+        });
+    }
+  });
 });
 
 chrome.tabs.onCreated.addListener((tab) => {
-  console.log("tab created");
+  if (tab.pendingUrl && ignoreURL(tab.pendingUrl)) {
+    addToHistory(tab.sessionId, tab.id, tab.windowId, tab.pendingUrl)
+      .then(() => {})
+      .catch((err) => console.error(err));
+  } else if (tab.url && ignoreURL(tab.url)) {
+    addToHistory(tab.sessionId, tab.id, tab.windowId, tab.url)
+      .then(() => {})
+      .catch((err) => console.error(err));
+  }
 });
 
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
@@ -166,24 +271,25 @@ chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
   console.log("updated tab url", tab.pendingUrl, tab.url);
 });
 
+function ignoreURL(url) {
+  let protocol = new URL(url).protocol;
+  if (protocol === "chrome:") return false;
+  return true;
+}
+
 function addQuota(url, domain, quota) {
   if (db) {
     const addTransaction = db.transaction(quotaTableName, "readwrite");
     const quotaStore = addTransaction.objectStore(quotaTableName);
-
     return new Promise((resolve, reject) => {
       addTransaction.oncomplete = function () {
         resolve(true);
       };
-
       addTransaction.onerror = function (err) {
         console.error("Quota adding transaction errored: ", err.stack || err);
         resolve(false);
       };
-
-      let request = quotaStore.add({ url, domain, quota });
-
-      request.onsuccess = function () {};
+      quotaStore.add({ url, domain, quota: quota * 1000 });
     });
   }
 }
@@ -278,7 +384,422 @@ function getList(date = null) {
           };
         });
       };
-      // };
     });
+  }
+}
+
+function getHistoryUrlKey(tabId, windowId, url) {
+  if (db) {
+    const getHistoryTransaction = db.transaction(
+      [historyTableName],
+      "readonly"
+    );
+    const historyStore = getHistoryTransaction.objectStore(historyTableName);
+    return new Promise((resolve, reject) => {
+      getHistoryTransaction.oncomplete = function () {};
+      getHistoryTransaction.onerror = function (err) {
+        console.error("Error getting history key by url: ", err.stack || err);
+        reject(err);
+      };
+      let request = historyStore
+        .index("tabId, windowId, url")
+        .getKey(IDBKeyRange.only([tabId, windowId, url]));
+      request.onsuccess = function (ev) {
+        let data = ev.target.result;
+        if (data) {
+          resolve(data);
+        } else {
+          reject(new Error("No key found"));
+        }
+      };
+    });
+  }
+}
+
+function getHistoryDateKey(tabId, windowId, date) {}
+
+function getHistoryUrlValue(tabId, windowId, url) {
+  if (db) {
+    return getHistoryUrlKey(tabId, windowId, url).then((key) => {
+      const getHistoryTransaction = db.transaction(
+        [historyTableName],
+        "readonly"
+      );
+      const historyStore = getHistoryTransaction.objectStore(historyTableName);
+      return new Promise((resolve, reject) => {
+        getHistoryTransaction.oncomplete = function () {};
+        getHistoryTransaction.onerror = function (err) {
+          console.error(
+            `Error getting history item for tab ${tabId} on window ${windowId} and url ${url}: `,
+            err.stack || err
+          );
+          reject(err);
+        };
+        let request = historyStore.get(key);
+        request.onsuccess = function (ev) {
+          let data = ev.target.result;
+          if (data) resolve(data);
+          else reject(new Error(`No history value found for key ${key}.`));
+        };
+      });
+    });
+  }
+}
+
+function getHistoryDateValue(windowId, date) {
+  if (db) {
+    const getHistoryTransaction = db.transaction(
+      [historyTableName],
+      "readonly"
+    );
+    const historyStore = getHistoryTransaction.objectStore(historyTableName);
+    return new Promise((resolve, reject) => {
+      getHistoryTransaction.oncomplete = function () {};
+      getHistoryTransaction.onerror = function (err) {
+        console.error("Error getting history transaction: ", err.stack || err);
+        reject(err);
+      };
+      let request = historyStore.index("windowId, date").get([windowId, date]);
+      request.onsuccess = function (ev) {
+        let data = ev.target.result;
+        if (data) {
+          if (data.length > 0) resolve(data);
+          else resolve([]);
+        } else
+          reject(
+            new Error(`No history item(s) present for ${windowId} on ${date}`)
+          );
+      };
+    });
+  }
+}
+
+function getHistoryDataByKey(key) {
+  if (db) {
+    const getHistoryTransaction = db.transaction(
+      [historyTableName],
+      "readonly"
+    );
+    const historyStore = getHistoryTransaction.objectStore(historyTableName);
+    return new Promise((resolve, reject) => {
+      getHistoryTransaction.oncomplete = function () {};
+      getHistoryTransaction.onerror = function (err) {
+        console.error("Error getting history item by key: ", err.stack || err);
+        reject(err);
+      };
+      let request = historyStore.get(key);
+      request.onsuccess = function (ev) {
+        let data = ev.target.result;
+        if (data) resolve(data);
+        else reject(new Error("No history item at key ", key));
+      };
+    });
+  }
+}
+
+function getMetaData() {
+  if (db) {
+    const getMetaDataTransaction = db.transaction(
+      [metaDataTableName],
+      "readonly"
+    );
+    const metaDataStore = getMetaDataTransaction.objectStore(metaDataTableName);
+    return new Promise((resolve, reject) => {
+      getMetaDataTransaction.oncomplete = function () {};
+      getMetaDataTransaction.onerror = function (err) {
+        console.error("Error getting all meta data: ", err.stack || err);
+        reject(err);
+      };
+      let request = metaDataStore.getAll();
+      request.onsuccess = function (ev) {
+        let data = ev.target.result;
+        if (data) resolve(data);
+        else reject(new Error("No data in meta data"));
+      };
+    });
+  }
+}
+
+function getMetaDataByType(type) {
+  if (db) {
+    const getMetaDataTransaction = db.transaction(
+      [metaDataTableName],
+      "readonly"
+    );
+    const metaDataStore = getMetaDataTransaction.objectStore(metaDataTableName);
+    return new Promise((resolve, reject) => {
+      getMetaDataTransaction.oncomplete = function () {};
+      getMetaDataTransaction.onerror = function (err) {
+        console.error(
+          `Error getting meta data based on type ${type}:`,
+          err.stack || err
+        );
+        reject(err);
+      };
+      let request = metaDataStore.index("type").get(type);
+      request.onsuccess = function (ev) {
+        let data = ev.target.result;
+        if (data) resolve(ev.target.result);
+        else reject(new Error(`No value found in meta data for ${type}`));
+      };
+    });
+  }
+}
+
+function addToHistory(
+  sessionId,
+  tabId,
+  windowId,
+  url,
+  starttime = null,
+  endtime = null
+) {
+  if (ignoreURL(url)) {
+    if (db) {
+      const addHistoryTransaction = db.transaction(
+        [historyTableName],
+        "readwrite"
+      );
+      const historyStore = addHistoryTransaction.objectStore(historyTableName);
+      return new Promise((resolve, reject) => {
+        addHistoryTransaction.oncomplete = function () {
+          resolve(true);
+        };
+        addHistoryTransaction.onerror = function (err) {
+          console.error("Error adding to history store: ", err.stack || err);
+          reject(err);
+        };
+        let now = new Date().toISOString();
+        if (starttime || endtime) {
+          if (starttime) {
+            historyStore.add({
+              tabId,
+              windowId,
+              url,
+              domain: new URL(url).host,
+              sessionId: sessionId,
+              createdAt: now,
+              lastUpdatedAt: now,
+              starttime,
+              count: 1,
+              date: new Date().toDateString(),
+            });
+          } else if (endtime) {
+            starttime = endtime - oneSecond;
+            historyStore.add({
+              tabId,
+              windowId,
+              url,
+              domain: new URL(url).host,
+              sessionId: sessionId,
+              createdAt: now,
+              lastUpdatedAt: now,
+              starttime,
+              count: 1,
+              date: new Date().toDateString(),
+              endtime,
+              timespent: oneSecond,
+            });
+          }
+        } else {
+          historyStore.add({
+            tabId,
+            windowId,
+            url,
+            domain: new URL(url).host,
+            sessionId: sessionId,
+            createdAt: now,
+            lastUpdatedAt: now,
+          });
+        }
+      });
+    }
+  }
+}
+
+function addCurrentTab(tabId, windowId, sessionId, url) {
+  if (db) {
+    const addCurrentTabTransaction = db.transaction(
+      [metaDataTableName],
+      "readwrite"
+    );
+    const metaDataStore =
+      addCurrentTabTransaction.objectStore(metaDataTableName);
+    return new Promise((resolve, reject) => {
+      addCurrentTabTransaction.oncomplete = function () {
+        resolve(true);
+      };
+      addCurrentTabTransaction.onerror = function (err) {
+        console.error("Error adding current tab meta data: ", err.stack || err);
+        reject(err);
+      };
+      metaDataStore.add(
+        {
+          type: "currentTab",
+          tabId,
+          windowId,
+          sessionId,
+          url,
+        },
+        "currentTab"
+      );
+    });
+  }
+}
+
+function updateCurrentTab(tabId, windowId, sessionId, url) {
+  if (db) {
+    return getMetaDataByType("currentTab")
+      .then((currentTab) => {
+        const putCurrentTabTransaction = db.transaction(
+          [metaDataTableName],
+          "readwrite"
+        );
+        const currentTabStore =
+          putCurrentTabTransaction.objectStore(metaDataTableName);
+        return new Promise((resolve, reject) => {
+          putCurrentTabTransaction.oncomplete = function () {
+            resolve(true);
+          };
+          putCurrentTabTransaction.onerror = function (err) {
+            console.error(
+              "Error updating meta data transaction: ",
+              err.stack || err
+            );
+            reject(err);
+          };
+          (currentTab.tabId = tabId), (currentTab.windowId = windowId);
+          currentTab.sessionId = sessionId;
+          currentTab.url = url;
+          currentTabStore.put(currentTab, "currentTab");
+        });
+      })
+      .catch((err) => {
+        return addCurrentTab(tabId, windowId, sessionId, url)
+          .then(() => Promise.resolve(true))
+          .catch((err) => Promise.reject(err));
+      });
+  }
+}
+
+function updateHistoryStarttime(tabId, windowId, url) {
+  if (db) {
+    return getHistoryUrlKey(tabId, windowId, url)
+      .then((key) => {
+        return getHistoryDataByKey(key)
+          .then((data) => {
+            const putHistoryTransaction = db.transaction(
+              [historyTableName],
+              "readwrite"
+            );
+            const historyStore =
+              putHistoryTransaction.objectStore(historyTableName);
+            return new Promise((resolve, reject) => {
+              putHistoryTransaction.oncomplete = function () {
+                resolve(true);
+              };
+              putHistoryTransaction.onerror = function (err) {
+                console.error(
+                  "Error updating history item transaction: ",
+                  err.stack || err
+                );
+                reject(err);
+              };
+              let now = new Date();
+              if (!("date" in data)) {
+                data["date"] = now.toDateString();
+              }
+              if (!("count" in data)) {
+                data["count"] = 1;
+              } else {
+                data["count"] += 1;
+              }
+              data["starttime"] = Date.now();
+              data["lastUpdatedAt"] = now.toISOString();
+              historyStore.put(data, key);
+            });
+          })
+          .catch((err) => {
+            // error getting data from history using key
+            console.error("Error getting data from history using key");
+            return Promise.reject(
+              new Error("Error getting data from history using key")
+            );
+          });
+      })
+      .catch((err) => {
+        // error getting key from history using tabId, windowId and URL
+        console.error(
+          "Error getting key from history using tabId, windowId and URL: ",
+          err.stack || err
+        );
+        return addToHistory(null, tabId, windowId, url, Date.now(), null)
+          .then(() => Promise.resolve(true))
+          .catch((err) =>
+            Promise.reject(
+              new Error("Error adding history item with decided start time")
+            )
+          );
+      });
+  }
+}
+
+function updateHistoryEndtime(tabId, windowId, url) {
+  if (db) {
+    return getHistoryUrlKey(tabId, windowId, url)
+      .then((key) => {
+        return getHistoryDataByKey(key)
+          .then((data) => {
+            const putHistoryTransaction = db.transaction(
+              [historyTableName],
+              "readwrite"
+            );
+            const historyStore =
+              putHistoryTransaction.objectStore(historyTableName);
+            return new Promise((resolve, reject) => {
+              putHistoryTransaction.oncomplete = function () {
+                resolve(true);
+              };
+              putHistoryTransaction.onerror = function (err) {
+                console.error(
+                  `Error updating history item transaction: `,
+                  err.stack || err
+                );
+                reject(err);
+              };
+              data["endtime"] = Date.now();
+              if (!("timespent" in data)) {
+                data["timespent"] = 0 + data["endtime"] - data["starttime"];
+              } else if ("timestamp" in data && data["timestamp"] === NaN) {
+                data["timespent"] = 0 + data["endtime"] - data["starttime"];
+              } else {
+                data["timespent"] =
+                  data["timespent"] + data["endtime"] - data["starttime"];
+              }
+              data["lastUpdatedAt"] = new Date().toISOString();
+              historyStore.put(data, key);
+            });
+          })
+          .catch((err) => {
+            // error getting data from history using key;
+            console.error("error getting data from history using key");
+            return Promise.reject(
+              new Error("Error getting data from history using key")
+            );
+          });
+      })
+      .catch((err) => {
+        // error getting key from history using tabId, windowId, url
+        console.error(
+          "error getting key from history using tabId, windowId, url"
+        );
+        return addToHistory(null, tabId, windowId, url, null, Date.now())
+          .then(() => Promise.resolve(true))
+          .catch((err) =>
+            Promise.reject(
+              new Error("Error adding new history item with decided end time")
+            )
+          );
+      });
   }
 }
