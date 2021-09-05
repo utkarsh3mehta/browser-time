@@ -2,7 +2,7 @@
 let db = null;
 const dbversion = 4,
   quotaTableName = "quotav4",
-  historyTableName = "historyv5",
+  historyTableName = "historyv6",
   metaDataTableName = "metaDatav2";
 const oneSecond = 1000;
 const fiveMinute = 5 * 60 * 1000;
@@ -46,6 +46,11 @@ chrome.runtime.onInstalled.addListener(() => {
       historyStore.createIndex("windowId, date", ["windowId", "date"], {
         unique: false,
       });
+      historyStore.createIndex(
+        "tabId, windowId, date",
+        ["tabId", "windowId", "date"],
+        { unique: false }
+      );
       let meta = db.createObjectStore(metaDataTableName, {
         keypath: "type",
       });
@@ -137,6 +142,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
+  // console.log("tab activated");
   chrome.tabs.get(tabId, (tab) => {
     if (ignoreURL(tab.url)) {
       getMetaDataByType("currentTab")
@@ -147,17 +153,19 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
             currentTab.url
           )
             .then((isUpdated) => {})
-            .catch((err) =>
-              console.error("error updating end time for previous tab")
-            );
+            .catch((err) => {
+              // console.error("error updating end time for previous tab");
+            });
           updateHistoryStarttime(tabId, windowId, tab.url)
             .then((isUpdated) => {})
-            .catch((err) =>
-              console.error("error updating start time of new tab")
-            );
+            .catch((err) => {
+              // console.error("error updating start time of new tab");
+            });
           updateCurrentTab(tabId, windowId, tab.sessionId, tab.url)
             .then(() => {})
-            .catch((err) => console.error("error updating current tab info"));
+            .catch((err) => {
+              // console.error("error updating current tab info");
+            });
         })
         .catch((err) => {
           if (err instanceof Error) {
@@ -167,7 +175,7 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
                   .then((list) => {
                     list
                       .filter((h) => h.date === new Date().toDateString())
-                      .filter((h) => h.tabId === tabId)
+                      .filter((h) => h.tabId !== tabId)
                       .forEach((h) =>
                         updateHistoryEndtime(h.tabId, h.windowId, h.url)
                       );
@@ -182,14 +190,14 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
                       Date.now()
                     )
                       .then(() => {})
-                      .catch((err) =>
-                        console.error("error adding to history ")
-                      );
+                      .catch((err) => {
+                        // console.error("error adding to history ");
+                      });
                   });
               })
               .catch((err) => {
                 // error adding current tab
-                console.error("error adding current tab");
+                // console.error("error adding current tab");
               });
           }
         });
@@ -203,12 +211,14 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
             currentTab.url
           )
             .then(() => {})
-            .catch((err) =>
-              console.error("error updating end time for previous tab")
-            );
+            .catch((err) => {
+              // console.error("error updating end time for previous tab");
+            });
           updateCurrentTab(tabId, windowId, tab.sessionId, tab.url)
             .then(() => {})
-            .catch((err) => console.error("error updating current tab info"));
+            .catch((err) => {
+              // console.error("error updating current tab info");
+            });
         })
         .catch((err) => {
           addCurrentTab(tabId, windowId, tab.sessionId, tab.url)
@@ -217,7 +227,7 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
                 .then((list) => {
                   list
                     .filter((h) => h.date === new Date().toDateString())
-                    .filter((h) => h.tabId === tabId)
+                    .filter((h) => h.tabId !== tabId)
                     .forEach((h) =>
                       updateHistoryEndtime(h.tabId, h.windowId, h.url)
                     );
@@ -225,7 +235,9 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
                 .catch((err) => {
                   addToHistory(null, tabId, windowId, tab.url, null, Date.now())
                     .then(() => {})
-                    .catch((err) => console.error("Error adding to history "));
+                    .catch((err) => {
+                      // console.error("Error adding to history ");
+                    });
                 });
             })
             .catch((err) => {
@@ -237,25 +249,32 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
 });
 
 chrome.tabs.onCreated.addListener((tab) => {
+  // console.log("tab created");
   if (tab.pendingUrl && ignoreURL(tab.pendingUrl)) {
     addToHistory(tab.sessionId, tab.id, tab.windowId, tab.pendingUrl)
       .then(() => {})
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        // console.error(err);
+      });
   } else if (tab.url && ignoreURL(tab.url)) {
     addToHistory(tab.sessionId, tab.id, tab.windowId, tab.url)
       .then(() => {})
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        // console.error(err);
+      });
   }
 });
 
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-  console.log("removing tab");
-  console.log("tabId", tabId);
-  console.log("removed tab info: windowId", removeInfo.windowId);
-  console.log(
-    "removed tab info: isWindowClosing: ",
-    removeInfo.isWindowClosing
-  );
+  chrome.tabs.get(tabId, (tab) => {
+    if (ignoreURL(tab.url)) {
+      updateHistoryEndtime(tabId, removeInfo.windowId, tab.url)
+        .then(() => {})
+        .catch((err) => {
+          // console.error("Error updating end time on tab removal");
+        });
+    }
+  });
 });
 
 // chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
@@ -264,12 +283,55 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
 //   console.log("removed tab id", removedTabId);
 // });
 
-chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
-  console.log("update update update");
-  console.log("tab id", tabId);
-  console.log("change info", changedInfo);
-  console.log("updated tab url", tab.pendingUrl, tab.url);
-});
+// chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
+//   console.log("tab updated", tabId, changedInfo, tab);
+//   if ("url" in changedInfo && ignoreURL(changedInfo.url)) {
+//     getHistoryTabDateKey(tabId, tab.windowId, new Date().toDateString())
+//       .then((list) => {
+//         // console.log(list);
+//         let historyItem = list.reduce((prev, next) =>
+//           next.lastUpdatedAt > prev.lastUpdatedAt ? next : prev
+//         );
+//         console.log(
+//           "history item reduced based on last updated at",
+//           historyItem
+//         );
+//         updateHistoryEndtime(
+//           historyItem.tabId,
+//           historyItem.windowId,
+//           historyItem.url
+//         )
+//           .then(() => {})
+//           .catch((err) =>
+//             console.error(
+//               "Error updating history item for tab update: ",
+//               err.stack || err
+//             )
+//           );
+//         addToHistory(
+//           tab.sessionId,
+//           tab.id,
+//           tab.windowId,
+//           tab.url,
+//           Date.now(),
+//           null
+//         )
+//           .then(() => {})
+//           .catch((err) => {
+//             console.error(
+//               "Error adding history item for tab update: ",
+//               err.stack || err
+//             );
+//           });
+//       })
+//       .catch((err) => {
+//         console.error(
+//           "Error fetching list of history items based on tabId, windowId and date: ",
+//           err
+//         );
+//       });
+//   }
+// });
 
 function ignoreURL(url) {
   let protocol = new URL(url).protocol;
@@ -286,7 +348,7 @@ function addQuota(url, domain, quota) {
         resolve(true);
       };
       addTransaction.onerror = function (err) {
-        console.error("Quota adding transaction errored: ", err.stack || err);
+        // console.error("Quota adding transaction errored: ", err.stack || err);
         resolve(false);
       };
       quotaStore.add({ url, domain, quota: quota * 1000 });
@@ -305,7 +367,7 @@ function getList(date = null) {
     return new Promise((resolve, reject) => {
       getHistoryTransaction.oncomplete = function () {};
       getHistoryTransaction.onerror = function (err) {
-        console.error("History get transaction errored: ", err.stack || err);
+        // console.error("History get transaction errored: ", err.stack || err);
         resolve(false);
       };
       let historyRequest = historyStore.getAll();
@@ -389,6 +451,7 @@ function getList(date = null) {
 }
 
 function getHistoryUrlKey(tabId, windowId, url) {
+  // console.log("get history url key", tabId, windowId, url);
   if (db) {
     const getHistoryTransaction = db.transaction(
       [historyTableName],
@@ -398,7 +461,7 @@ function getHistoryUrlKey(tabId, windowId, url) {
     return new Promise((resolve, reject) => {
       getHistoryTransaction.oncomplete = function () {};
       getHistoryTransaction.onerror = function (err) {
-        console.error("Error getting history key by url: ", err.stack || err);
+        // console.error("Error getting history key by url: ", err.stack || err);
         reject(err);
       };
       let request = historyStore
@@ -416,9 +479,8 @@ function getHistoryUrlKey(tabId, windowId, url) {
   }
 }
 
-function getHistoryDateKey(tabId, windowId, date) {}
-
 function getHistoryUrlValue(tabId, windowId, url) {
+  // console.log("get history url values", tabId, windowId, url);
   if (db) {
     return getHistoryUrlKey(tabId, windowId, url).then((key) => {
       const getHistoryTransaction = db.transaction(
@@ -429,10 +491,10 @@ function getHistoryUrlValue(tabId, windowId, url) {
       return new Promise((resolve, reject) => {
         getHistoryTransaction.oncomplete = function () {};
         getHistoryTransaction.onerror = function (err) {
-          console.error(
-            `Error getting history item for tab ${tabId} on window ${windowId} and url ${url}: `,
-            err.stack || err
-          );
+          // console.error(
+          //   `Error getting history item for tab ${tabId} on window ${windowId} and url ${url}: `,
+          //   err.stack || err
+          // );
           reject(err);
         };
         let request = historyStore.get(key);
@@ -447,6 +509,7 @@ function getHistoryUrlValue(tabId, windowId, url) {
 }
 
 function getHistoryDateValue(windowId, date) {
+  // console.log("get history date values", windowId, date);
   if (db) {
     const getHistoryTransaction = db.transaction(
       [historyTableName],
@@ -456,10 +519,12 @@ function getHistoryDateValue(windowId, date) {
     return new Promise((resolve, reject) => {
       getHistoryTransaction.oncomplete = function () {};
       getHistoryTransaction.onerror = function (err) {
-        console.error("Error getting history transaction: ", err.stack || err);
+        // console.error("Error getting history transaction: ", err.stack || err);
         reject(err);
       };
-      let request = historyStore.index("windowId, date").get([windowId, date]);
+      let request = historyStore
+        .index("windowId, date")
+        .getAll(IDBKeyRange.only([windowId, date]));
       request.onsuccess = function (ev) {
         let data = ev.target.result;
         if (data) {
@@ -474,7 +539,8 @@ function getHistoryDateValue(windowId, date) {
   }
 }
 
-function getHistoryDataByKey(key) {
+function getHistoryTabDateKey(tabId, windowId, date) {
+  // console.log("get history tab date values", tabId, windowId, date);
   if (db) {
     const getHistoryTransaction = db.transaction(
       [historyTableName],
@@ -484,7 +550,33 @@ function getHistoryDataByKey(key) {
     return new Promise((resolve, reject) => {
       getHistoryTransaction.oncomplete = function () {};
       getHistoryTransaction.onerror = function (err) {
-        console.error("Error getting history item by key: ", err.stack || err);
+        // console.error("Error getting history transaction: ", err.stack || err);
+        reject(err);
+      };
+      let request = historyStore
+        .index("tabId, windowId, date")
+        .getAll(IDBKeyRange.only([tabId, windowId, date]));
+      request.onsuccess = function (ev) {
+        let data = ev.target.result;
+        if (data) resolve(data);
+        else reject(new Error("No data found"));
+      };
+    });
+  }
+}
+
+function getHistoryDataByKey(key) {
+  // console.log("get history data by key", key);
+  if (db) {
+    const getHistoryTransaction = db.transaction(
+      [historyTableName],
+      "readonly"
+    );
+    const historyStore = getHistoryTransaction.objectStore(historyTableName);
+    return new Promise((resolve, reject) => {
+      getHistoryTransaction.oncomplete = function () {};
+      getHistoryTransaction.onerror = function (err) {
+        // console.error("Error getting history item by key: ", err.stack || err);
         reject(err);
       };
       let request = historyStore.get(key);
@@ -498,6 +590,7 @@ function getHistoryDataByKey(key) {
 }
 
 function getMetaData() {
+  // console.log("get all meta data");
   if (db) {
     const getMetaDataTransaction = db.transaction(
       [metaDataTableName],
@@ -507,7 +600,7 @@ function getMetaData() {
     return new Promise((resolve, reject) => {
       getMetaDataTransaction.oncomplete = function () {};
       getMetaDataTransaction.onerror = function (err) {
-        console.error("Error getting all meta data: ", err.stack || err);
+        // console.error("Error getting all meta data: ", err.stack || err);
         reject(err);
       };
       let request = metaDataStore.getAll();
@@ -521,6 +614,7 @@ function getMetaData() {
 }
 
 function getMetaDataByType(type) {
+  // console.log("get meta data by type", type);
   if (db) {
     const getMetaDataTransaction = db.transaction(
       [metaDataTableName],
@@ -530,10 +624,10 @@ function getMetaDataByType(type) {
     return new Promise((resolve, reject) => {
       getMetaDataTransaction.oncomplete = function () {};
       getMetaDataTransaction.onerror = function (err) {
-        console.error(
-          `Error getting meta data based on type ${type}:`,
-          err.stack || err
-        );
+        // console.error(
+        //   `Error getting meta data based on type ${type}:`,
+        //   err.stack || err
+        // );
         reject(err);
       };
       let request = metaDataStore.index("type").get(type);
@@ -554,6 +648,15 @@ function addToHistory(
   starttime = null,
   endtime = null
 ) {
+  // console.log(
+  //   "adding to history",
+  //   sessionId,
+  //   tabId,
+  //   windowId,
+  //   url,
+  //   starttime,
+  //   endtime
+  // );
   if (ignoreURL(url)) {
     if (db) {
       const addHistoryTransaction = db.transaction(
@@ -566,7 +669,7 @@ function addToHistory(
           resolve(true);
         };
         addHistoryTransaction.onerror = function (err) {
-          console.error("Error adding to history store: ", err.stack || err);
+          // console.error("Error adding to history store: ", err.stack || err);
           reject(err);
         };
         let now = new Date().toISOString();
@@ -618,6 +721,7 @@ function addToHistory(
 }
 
 function addCurrentTab(tabId, windowId, sessionId, url) {
+  // console.log("adding current tab", tabId, windowId, sessionId, url);
   if (db) {
     const addCurrentTabTransaction = db.transaction(
       [metaDataTableName],
@@ -630,7 +734,7 @@ function addCurrentTab(tabId, windowId, sessionId, url) {
         resolve(true);
       };
       addCurrentTabTransaction.onerror = function (err) {
-        console.error("Error adding current tab meta data: ", err.stack || err);
+        // console.error("Error adding current tab meta data: ", err.stack || err);
         reject(err);
       };
       metaDataStore.add(
@@ -648,6 +752,7 @@ function addCurrentTab(tabId, windowId, sessionId, url) {
 }
 
 function updateCurrentTab(tabId, windowId, sessionId, url) {
+  // console.log("updating current tab", tabId, windowId, sessionId, url);
   if (db) {
     return getMetaDataByType("currentTab")
       .then((currentTab) => {
@@ -662,10 +767,10 @@ function updateCurrentTab(tabId, windowId, sessionId, url) {
             resolve(true);
           };
           putCurrentTabTransaction.onerror = function (err) {
-            console.error(
-              "Error updating meta data transaction: ",
-              err.stack || err
-            );
+            // console.error(
+            //   "Error updating meta data transaction: ",
+            //   err.stack || err
+            // );
             reject(err);
           };
           (currentTab.tabId = tabId), (currentTab.windowId = windowId);
@@ -683,6 +788,7 @@ function updateCurrentTab(tabId, windowId, sessionId, url) {
 }
 
 function updateHistoryStarttime(tabId, windowId, url) {
+  // console.log("updating history start time", tabId, windowId, url);
   if (db) {
     return getHistoryUrlKey(tabId, windowId, url)
       .then((key) => {
@@ -699,10 +805,10 @@ function updateHistoryStarttime(tabId, windowId, url) {
                 resolve(true);
               };
               putHistoryTransaction.onerror = function (err) {
-                console.error(
-                  "Error updating history item transaction: ",
-                  err.stack || err
-                );
+                // console.error(
+                //   "Error updating history item transaction: ",
+                //   err.stack || err
+                // );
                 reject(err);
               };
               let now = new Date();
@@ -721,7 +827,7 @@ function updateHistoryStarttime(tabId, windowId, url) {
           })
           .catch((err) => {
             // error getting data from history using key
-            console.error("Error getting data from history using key");
+            // console.error("Error getting data from history using key");
             return Promise.reject(
               new Error("Error getting data from history using key")
             );
@@ -729,10 +835,10 @@ function updateHistoryStarttime(tabId, windowId, url) {
       })
       .catch((err) => {
         // error getting key from history using tabId, windowId and URL
-        console.error(
-          "Error getting key from history using tabId, windowId and URL: ",
-          err.stack || err
-        );
+        // console.error(
+        //   "Error getting key from history using tabId, windowId and URL: ",
+        //   err.stack || err
+        // );
         return addToHistory(null, tabId, windowId, url, Date.now(), null)
           .then(() => Promise.resolve(true))
           .catch((err) =>
@@ -745,6 +851,7 @@ function updateHistoryStarttime(tabId, windowId, url) {
 }
 
 function updateHistoryEndtime(tabId, windowId, url) {
+  // console.log("updating history end time", tabId, windowId, url);
   if (db) {
     return getHistoryUrlKey(tabId, windowId, url)
       .then((key) => {
@@ -761,10 +868,10 @@ function updateHistoryEndtime(tabId, windowId, url) {
                 resolve(true);
               };
               putHistoryTransaction.onerror = function (err) {
-                console.error(
-                  `Error updating history item transaction: `,
-                  err.stack || err
-                );
+                // console.error(
+                //   `Error updating history item transaction: `,
+                //   err.stack || err
+                // );
                 reject(err);
               };
               data["endtime"] = Date.now();
@@ -782,7 +889,7 @@ function updateHistoryEndtime(tabId, windowId, url) {
           })
           .catch((err) => {
             // error getting data from history using key;
-            console.error("error getting data from history using key");
+            // console.error("error getting data from history using key");
             return Promise.reject(
               new Error("Error getting data from history using key")
             );
@@ -790,9 +897,9 @@ function updateHistoryEndtime(tabId, windowId, url) {
       })
       .catch((err) => {
         // error getting key from history using tabId, windowId, url
-        console.error(
-          "error getting key from history using tabId, windowId, url"
-        );
+        // console.error(
+        //   "error getting key from history using tabId, windowId, url"
+        // );
         return addToHistory(null, tabId, windowId, url, null, Date.now())
           .then(() => Promise.resolve(true))
           .catch((err) =>
