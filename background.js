@@ -1,9 +1,10 @@
 // variable initialation
 let db = null;
-const dbversion = 4,
+const dbversion = 5,
   quotaTableName = "quotav4",
   historyTableName = "historyv6",
-  metaDataTableName = "metaDatav2";
+  metaDataTableName = "metaDatav2",
+  faviconTableName = "faviconv1";
 const oneSecond = 1000;
 const oneMinute = 60 * 1000;
 const defaultTimespent = 1 * 60 * 1000;
@@ -56,6 +57,10 @@ chrome.runtime.onInstalled.addListener(() => {
         keypath: "type",
       });
       meta.createIndex("type", "type", { unique: false });
+      let favicon = db.createObjectStore(faviconTableName, {
+        keypath: "domain",
+      });
+      favicon.createIndex("domain", "domain", { unique: true });
       // wait 5 seconds;
       setTimeout(() => {
         // fetching history items from previous 5 days and 500 records
@@ -139,6 +144,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         payload: res,
       });
     });
+  } else if (request.message === "get_favIcon") {
+    let dbrequest = getFavicon(request.payload.domain);
+    dbrequest
+      .then((data) => {
+        chrome.runtime.sendMessage({
+          message: "get_favIcon_response",
+          payload: data,
+        });
+      })
+      .catch((err) => {
+        chrome.runtime.sendMessage({
+          message: "get_favIcon_response",
+          payload: false,
+        });
+      });
   }
 });
 
@@ -284,55 +304,25 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
 //   console.log("removed tab id", removedTabId);
 // });
 
-// chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
-//   console.log("tab updated", tabId, changedInfo, tab);
-//   if ("url" in changedInfo && ignoreURL(changedInfo.url)) {
-//     getHistoryTabDateKey(tabId, tab.windowId, new Date().toDateString())
-//       .then((list) => {
-//         // console.log(list);
-//         let historyItem = list.reduce((prev, next) =>
-//           next.lastUpdatedAt > prev.lastUpdatedAt ? next : prev
-//         );
-//         console.log(
-//           "history item reduced based on last updated at",
-//           historyItem
-//         );
-//         updateHistoryEndtime(
-//           historyItem.tabId,
-//           historyItem.windowId,
-//           historyItem.url
-//         )
-//           .then(() => {})
-//           .catch((err) =>
-//             console.error(
-//               "Error updating history item for tab update: ",
-//               err.stack || err
-//             )
-//           );
-//         addToHistory(
-//           tab.sessionId,
-//           tab.id,
-//           tab.windowId,
-//           tab.url,
-//           Date.now(),
-//           null
-//         )
-//           .then(() => {})
-//           .catch((err) => {
-//             console.error(
-//               "Error adding history item for tab update: ",
-//               err.stack || err
-//             );
-//           });
-//       })
-//       .catch((err) => {
-//         console.error(
-//           "Error fetching list of history items based on tabId, windowId and date: ",
-//           err
-//         );
-//       });
-//   }
-// });
+chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
+  // console.log("tab updated", tabId, changedInfo, tab);
+  if ("favIconUrl" in changedInfo) {
+    let domain = new URL(tab.url).host;
+    getFavicon(domain)
+      .then((data) => {
+        if (data.favIconUrl !== changedInfo.favIconUrl) {
+          updateFavicon(domain, changedInfo.favIconUrl)
+            .then(() => {})
+            .catch(() => {});
+        }
+      })
+      .catch((err) => {
+        createFavicon(domain, changedInfo.favIconUrl)
+          .then(() => {})
+          .catch((err) => {});
+      });
+  }
+});
 
 function ignoreURL(url) {
   let protocol = new URL(url).protocol;
@@ -916,6 +906,73 @@ function updateHistoryEndtime(tabId, windowId, url) {
               new Error("Error adding new history item with decided end time")
             )
           );
+      });
+  }
+}
+
+function createFavicon(domain, favIconUrl) {
+  if (db) {
+    const faviconTransaction = db.transaction([faviconTableName], "readwrite");
+    const faviconStore = faviconTransaction.objectStore(faviconTableName);
+    return new Promise((resolve, reject) => {
+      faviconTransaction.oncomplete = function () {
+        resolve(true);
+      };
+      faviconTransaction.onerror = function (err) {
+        reject(err);
+      };
+      faviconStore.add({ domain, favIconUrl }, domain);
+    });
+  }
+}
+
+function getFavicon(domain) {
+  if (db) {
+    const getFaviconTransaction = db.transaction(
+      [faviconTableName],
+      "readonly"
+    );
+    const faviconStore = getFaviconTransaction.objectStore(faviconTableName);
+    return new Promise((resolve, reject) => {
+      getFaviconTransaction.oncomplete = function () {};
+      getFaviconTransaction.onerror = function (err) {
+        reject(err);
+      };
+      let request = faviconStore.get(domain);
+      request.onsuccess = function (ev) {
+        let data = ev.target.result;
+        if (data) resolve(data);
+        else reject(new Error(`No favicon found for domain ${domain}`));
+      };
+    });
+  }
+}
+
+function updateFavicon(domain, favIconUrl) {
+  if (db) {
+    return getFavicon(domain)
+      .then((data) => {
+        const putFaviconTransaction = db.transaction(
+          [faviconTableName],
+          "readwrite"
+        );
+        const faviconStore =
+          putFaviconTransaction.objectStore(faviconTableName);
+        return new Promise((resolve, reject) => {
+          putFaviconTransaction.oncomplete = function () {
+            resolve(true);
+          };
+          putFaviconTransaction.onerror = function (err) {
+            reject(err);
+          };
+          data.favIconUrl = favIconUrl;
+          faviconStore.put(data, domain);
+        });
+      })
+      .catch((err) => {
+        createFavicon(domain, favIconUrl)
+          .then(() => Promise.resolve(true))
+          .catch((err) => Promise.reject(err));
       });
   }
 }
