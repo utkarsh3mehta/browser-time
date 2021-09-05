@@ -15,7 +15,6 @@
         "unlimitedStorage",
         "history",
         "topSites",
-        "tabs",
-        "sessions"
+        "tabs"
     ]
 }
