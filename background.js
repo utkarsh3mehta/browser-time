@@ -1,25 +1,32 @@
 let db = null;
+const dbversion = 4,
+  quotaTableName = "quotav4",
+  historyTableName = "historyv4",
+  metaDataTableName = "meta-datav2";
+const oneSecond = 1000;
+const fiveMinute = 5 * 60 * 1000;
+const maxHistoryResult = 500;
+const onboardingLoadTime = 5000;
 chrome.runtime.onInstalled.addListener(() => {
   if (!window.indexedDB) {
     console.error(
       "Indexed DB is not a part of your browser. Will not be able to use this extension"
     );
   } else {
-    const request = window.indexedDB.open("browserTime_db", 2);
+    const request = window.indexedDB.open("browserTime_db", dbversion);
     request.onerror = function (ev) {
       console.error("Error opening DB:", ev.stack || ev);
     };
     request.onupgradeneeded = function (ev) {
       db = ev.target.result;
-      let quotaStore = db.createObjectStore("quota", {
+      let quotaStore = db.createObjectStore(quotaTableName, {
         keypath: "id",
         autoIncrement: true,
       });
       quotaStore.createIndex("url", "url", { unique: false });
       quotaStore.createIndex("domain", "domain", { unique: true });
       quotaStore.createIndex("quota", "quota", { unique: false });
-      quotaStore.transaction.oncomplete = function () {};
-      let historyStore = db.createObjectStore("history", {
+      let historyStore = db.createObjectStore(historyTableName, {
         keypath: "id",
         autoIncrement: true,
       });
@@ -27,13 +34,23 @@ chrome.runtime.onInstalled.addListener(() => {
       historyStore.createIndex("domain", "domain", { unique: false });
       historyStore.createIndex("date", "date", { unique: false });
       historyStore.createIndex("timespent", "timespent", { unique: false });
-      historyStore.transaction.oncomplete = function () {};
-      let meta = db.createObjectStore("meta-data", {
-        keypath: "id",
-        autoIncrement: true,
-      })
-      meta.createIndex("type", "type", { unique: true });
-      // wait 2 seconds;
+      historyStore.createIndex("tabId", "tabId", { unique: false });
+      historyStore.createIndex("windowId", "windowId", { unique: false });
+      historyStore.createIndex(
+        "tabId, windowId, url",
+        ["tabId", "windowId", "url"],
+        { unique: false }
+      );
+      historyStore.createIndex(
+        "tabId, windowId, date",
+        ["tabId", "windowId", "date"],
+        { unique: false }
+      );
+      let meta = db.createObjectStore(metaDataTableName, {
+        keypath: "type",
+      });
+      meta.createIndex("type", "type", { unique: false });
+      // wait 5 seconds;
       setTimeout(() => {
         // fetching history items from previous 5 days and 500 records
         const now = new Date();
@@ -42,33 +59,38 @@ chrome.runtime.onInstalled.addListener(() => {
         now.setMinutes(0);
         now.setSeconds(0);
         const start = now.setMilliseconds(0);
-        const fiveMinute = 60 * 5;
         chrome.history.search(
           {
             text: "",
             startTime: start,
-            maxResults: 500,
+            maxResults: maxHistoryResult,
           },
           (historyItems) => {
             for (const hI of historyItems) {
               let url = new URL(hI.url);
               chrome.history.getVisits({ url: hI.url }, (visitItems) => {
+                let now = new Date().toISOString();
                 for (const vI of visitItems) {
                   const addHistoryTransaction = db.transaction(
-                    "history",
+                    historyTableName,
                     "readwrite"
                   );
                   const historyStore =
-                    addHistoryTransaction.objectStore("history");
+                    addHistoryTransaction.objectStore(historyTableName);
                   addHistoryTransaction.onerror = function (err) {};
                   addHistoryTransaction.oncomplete = function () {};
                   let request = historyStore.add({
                     url: hI.url,
                     domain: url.host,
+                    tabId: null,
+                    windowId: null,
+                    sessionId: null,
+                    createdAt: now,
+                    lastUpdatedAt: now,
                     starttime: vI.visitTime,
                     endtime: vI.visitTime + fiveMinute,
                     date: new Date(vI.visitTime).toDateString(),
-                    timespent: 300,
+                    timespent: fiveMinute,
                   });
                   request.onsuccess = function () {};
                 }
@@ -76,7 +98,7 @@ chrome.runtime.onInstalled.addListener(() => {
             }
           }
         );
-      }, 2000);
+      }, onboardingLoadTime);
     };
     request.onsuccess = function (ev) {
       db = request.result;
@@ -114,71 +136,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
-  console.log("tab activated");
-  chrome.tabs.get(tabId, (tab) => {
-    if (tab.pendingUrl) {
-      addHistory(
-        tab.pendingUrl,
-        new URL(tab.pendingUrl).host,
-        tabId,
-        windowId,
-        tab.sessionid
-      ).then((res) => {
-        if (res) console.log("Added to history");
-        else console.log("Error adding to history");
-      });
-    } else if (tab.url) {
-      addHistory(
-        tab.url,
-        new URL(tab.url).host,
-        tabId,
-        windowId,
-        tab.sessionId
-      ).then((res) => {
-        if (res) console.log("Added to history");
-        else console.log("Error adding to history");
-      });
-    }
-  });
+  console.log("tab activated", tabId, windowId);
 });
-
-// // chrome.tabs.onHighlighted.addListener(({ tabIds, windowId }) => {
-// //   console.log('tab(s) highlighted');
-// //   console.log('tab ids', tabIds);
-// //   console.log('window id', windowId);
-// // })
 
 chrome.tabs.onCreated.addListener((tab) => {
-  if (tab.pendingUrl) {
-    addHistory(
-      tab.pendingUrl,
-      new URL(tab.pendingUrl).host,
-      tab.id,
-      tab.windowId,
-      tab.sessionid
-    ).then((res) => {
-      if (res) console.log("Added to history");
-      else console.log("Error adding to history");
-    });
-  } else if (tab.url) {
-    addHistory(
-      tab.url,
-      new URL(tab.url).host,
-      tab.id,
-      tab.windowId,
-      tab.sessionId
-    ).then((res) => {
-      if (res) console.log("Added to history");
-      else console.log("Error adding to history");
-    });
-  }
+  console.log("tab created");
 });
 
-// chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-//   console.log("removing tab");
-//   console.log("tabId", tabId);
-//   console.log("removed tab info", removeInfo);
-// });
+chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+  console.log("removing tab");
+  console.log("tabId", tabId);
+  console.log("removed tab info: windowId", removeInfo.windowId);
+  console.log(
+    "removed tab info: isWindowClosing: ",
+    removeInfo.isWindowClosing
+  );
+});
 
 // chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
 //   console.log("tab replaced");
@@ -190,17 +163,13 @@ chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
   console.log("update update update");
   console.log("tab id", tabId);
   console.log("change info", changedInfo);
-  console.log("updated tab", tab);
-  if ("url" in changedInfo) {
-    // update history
-    // use tabId
-  }
+  console.log("updated tab url", tab.pendingUrl, tab.url);
 });
 
 function addQuota(url, domain, quota) {
   if (db) {
-    const addTransaction = db.transaction("quota", "readwrite");
-    const quotaStore = addTransaction.objectStore("quota");
+    const addTransaction = db.transaction(quotaTableName, "readwrite");
+    const quotaStore = addTransaction.objectStore(quotaTableName);
 
     return new Promise((resolve, reject) => {
       addTransaction.oncomplete = function () {
@@ -208,7 +177,7 @@ function addQuota(url, domain, quota) {
       };
 
       addTransaction.onerror = function (err) {
-        console.log("Quota adding transaction errored: ", err.stack || err);
+        console.error("Quota adding transaction errored: ", err.stack || err);
         resolve(false);
       };
 
@@ -225,12 +194,12 @@ function getList(date = null) {
     useDate = new Date(date);
   }
   if (db) {
-    const getHistoryTransaction = db.transaction("history", "readonly");
-    const historyStore = getHistoryTransaction.objectStore("history");
+    const getHistoryTransaction = db.transaction(historyTableName, "readonly");
+    const historyStore = getHistoryTransaction.objectStore(historyTableName);
     return new Promise((resolve, reject) => {
       getHistoryTransaction.oncomplete = function () {};
       getHistoryTransaction.onerror = function (err) {
-        console.log("History get transaction errored: ", err.stack || err);
+        console.error("History get transaction errored: ", err.stack || err);
         resolve(false);
       };
       let historyRequest = historyStore.getAll();
@@ -258,8 +227,11 @@ function getList(date = null) {
             }
           });
           historyList = historyList.slice(0, 5);
-          const getQuotaTransaction = db.transaction("quota", "readonly");
-          const quotaStore = getQuotaTransaction.objectStore("quota");
+          const getQuotaTransaction = db.transaction(
+            quotaTableName,
+            "readonly"
+          );
+          const quotaStore = getQuotaTransaction.objectStore(quotaTableName);
           let quotaRequest = quotaStore.getAll();
           quotaRequest.onsuccess = function (event) {
             let quotaResult = event.target.result;
@@ -308,63 +280,5 @@ function getList(date = null) {
       };
       // };
     });
-  }
-}
-
-function addHistory(
-  url,
-  domain,
-  tabId = null,
-  windowId = null,
-  sessionId = null
-) {
-  if (db) {
-    const calcNow = new Date();
-    const now = calcNow.setMilliseconds(0);
-    const addTransaction = db.transaction("history", "readwrite");
-    const historyStore = addTransaction.objectStore("history");
-    return new Promise((resolve, reject) => {
-      addTransaction.oncomplete = function () {
-        resolve(true);
-      };
-      addTransaction.onerror = function (err) {
-        console.log("History adding transaction errored: ", err.stack || err);
-        resolve(false);
-      };
-      let request = historyStore.add({
-        url,
-        domain,
-        tabId,
-        windowId,
-        sessionId,
-        starttime: now,
-        timespent: 0,
-        date: calcNow.toDateString(),
-      });
-      request.onsuccess = function () {};
-    });
-  }
-}
-
-function updateHistory(url, tabId, windowId) {
-  if (db) {
-    const today = new Date().toDateString();
-    const getTransaction = db.transaction("history", "readwrite");
-    const getHistoryStore = getTransaction.objectStore("history");
-    getTransaction.oncomplete = function () {};
-    getTransaction.onerror = function (err) {
-      console.log("History get transaction errored: ", err.stack || err);
-    };
-    let request = getHistoryStore.getAll();
-    request.onsuccess = function (event) {
-      const result = event.target.result;
-      result
-        .filter((r) => r.date === today)
-        .filter((r) => r.url === url)
-        .filter((r) => r.windowId === windowId)
-        .filter((r) => r.tabId === tabId)
-        .sort();
-      console.log(result);
-    };
   }
 }
