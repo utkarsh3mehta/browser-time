@@ -35,7 +35,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     flash.innerText = request.payload
       ? "Quota added successfully"
       : "Error adding quota. Please try again or maybe quota for this domain already exists";
-    get_all();
+    get_all(dateLabel.innerText);
   } else if (request.message === "get_all_response") {
     if (request.payload) {
       const payload = request.payload;
@@ -60,10 +60,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           "src",
           `chrome://favicon/${new URL(quota.url).protocol}//${quota.domain}`
         );
-        iconImage.setAttribute(
-          "alt",
-          'ico'
-        );
+        iconImage.setAttribute("title", quota.domain);
+        iconImage.setAttribute("alt", "ico");
         iconImage.style.borderRadius = "50%";
         iconImage.style.width = "20px";
         iconImage.style.height = "20px";
@@ -93,9 +91,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           let setActionButton = document.createElement("button");
           setActionButton.classList.add("button", "pointer");
           setActionButton.innerText = "Set";
-          setActionButton.setAttribute("data-url", quota.url);
+          setActionButton.setAttribute(
+            "data-url",
+            `${new URL(quota.url).protocol}//${quota.domain}`
+          );
           setActionButton.addEventListener("click", () =>
-            setButtonClick(quota.url)
+            setButtonClick(`${new URL(quota.url).protocol}//${quota.domain}`)
           );
           quotaColumn.appendChild(setActionButton);
         }
@@ -115,11 +116,15 @@ form_domain.addEventListener("submit", (event) => {
   chrome.runtime.sendMessage({
     message: "add",
     payload: {
-      url: form_data.get("url"),
+      url: url,
       domain: url.host,
       quota: form_data.get("quota"),
     },
   });
+  let domain_input = document.getElementById("url");
+  let quota_input = document.getElementById("quota");
+  domain_input.value = "";
+  quota_input.value = "";
 });
 
 function setButtonClick(url) {
@@ -151,6 +156,8 @@ function nextDate(now) {
     tomorrow.setSeconds(0);
     tomorrow.setMilliseconds(0);
     dateLabel.innerText = tomorrow.toDateString();
+    flash.innerText = "";
+    flash.classList.remove("bad");
     get_all(tomorrow);
   } else {
     flash.innerText = "Cannot be done.";
