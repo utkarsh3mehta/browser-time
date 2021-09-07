@@ -469,8 +469,11 @@ chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
           .catch((err) => {});
       });
   }
-  if ("url" in changedInfo) {
-    // console.log("tab updated: url changed");
+  if (
+    "url" in changedInfo ||
+    ("status" in changedInfo && changedInfo.status === "loading")
+  ) {
+    console.log("tab updated: url changed");
     getMetaDataByType("currentTab")
       .then((currentTab) => {
         // console.log("tab updated: get current tab: ", currentTab);
@@ -485,7 +488,7 @@ chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
             updateCurrentTab(tabId, tab.windowId, tab.sessionId, tab.url)
               .then(() => {
                 // console.log("tab updated: updated current tab info");
-                if (ignoreURL(changedInfo.url)) {
+                if (ignoreURL(tab.url)) {
                   getHistoryTabUrlDateKey(
                     tabId,
                     tab.windowId,
@@ -546,13 +549,13 @@ chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
           });
       })
       .catch((err) => {
-        console.log("Current tab info not found.");
+        // console.log("tab updated: Current tab info not found.");
         addCurrentTab(tabId, tab.windowId, tab.sessionId, tab.url)
           .then(() => {
-            console.log("Current tab info added");
+            // console.log("tab updated: Current tab info added");
           })
           .catch((err) => {
-            console.log("Error adding current tab info");
+            // console.log("tab updated: Error adding current tab info");
           });
       });
   }
