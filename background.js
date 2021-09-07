@@ -471,79 +471,90 @@ chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
   }
   if ("url" in changedInfo) {
     // console.log("tab updated: url changed");
-    getMetaDataByType("currentTab").then((currentTab) => {
-      // console.log("tab updated: get current tab: ", currentTab);
-      updateHistoryEndtime(
-        currentTab.tabId,
-        currentTab.windowId,
-        currentTab.url,
-        new Date().toDateString()
-      )
-        .then(() => {
-          // console.log("tab updated: updated end time for previous tab");
-          updateCurrentTab(tabId, tab.windowId, tab.sessionId, tab.url)
-            .then(() => {
-              // console.log("tab updated: updated current tab info");
-              if (ignoreURL(changedInfo.url)) {
-                getHistoryTabUrlDateKey(
-                  tabId,
-                  tab.windowId,
-                  tab.url,
-                  new Date().toDateString()
-                )
-                  .then((key) => {
-                    // console.log(
-                    //   "tab updated: row with similar details found at ",
-                    //   key
-                    // );
-                    updateHistoryStarttime(
-                      tabId,
-                      tab.windowId,
-                      tab.url,
-                      new Date().toDateString()
-                    )
-                      .then(() => {
-                        // console.log(
-                        //   "tab updated: update tab start time for a historic tab"
-                        // );
-                      })
-                      .catch((err) => {
-                        // console.log(
-                        //   "tab updated: error updating start time for a history tab"
-                        // );
-                      });
-                  })
-                  .catch((err) => {
-                    // console.log(
-                    //   "tab updated: no data found for tab. Creating new row"
-                    // );
-                    addToHistory(
-                      tab.sessionId,
-                      tab.id,
-                      tab.windowId,
-                      tab.url,
-                      Date.now(),
-                      null
-                    )
-                      .then(() => {
-                        // console.log(
-                        //   "tab updated: added to history cause browsed to new url"
-                        // );
-                      })
-                      .catch((err) => {
-                        // console.log("tab updated: error adding to history");
-                      });
-                  });
-              }
-            })
-            .catch((err) => {
-              // console.log("tab updated: error updating current tab info");
-            });
-        })
-        .catch((err) => {
-          // console.log("tab updated: error update end timie for previous tab");
-        });
-    });
+    getMetaDataByType("currentTab")
+      .then((currentTab) => {
+        // console.log("tab updated: get current tab: ", currentTab);
+        updateHistoryEndtime(
+          currentTab.tabId,
+          currentTab.windowId,
+          currentTab.url,
+          new Date().toDateString()
+        )
+          .then(() => {
+            // console.log("tab updated: updated end time for previous tab");
+            updateCurrentTab(tabId, tab.windowId, tab.sessionId, tab.url)
+              .then(() => {
+                // console.log("tab updated: updated current tab info");
+                if (ignoreURL(changedInfo.url)) {
+                  getHistoryTabUrlDateKey(
+                    tabId,
+                    tab.windowId,
+                    tab.url,
+                    new Date().toDateString()
+                  )
+                    .then((key) => {
+                      // console.log(
+                      //   "tab updated: row with similar details found at ",
+                      //   key
+                      // );
+                      updateHistoryStarttime(
+                        tabId,
+                        tab.windowId,
+                        tab.url,
+                        new Date().toDateString()
+                      )
+                        .then(() => {
+                          // console.log(
+                          //   "tab updated: update tab start time for a historic tab"
+                          // );
+                        })
+                        .catch((err) => {
+                          // console.log(
+                          //   "tab updated: error updating start time for a history tab"
+                          // );
+                        });
+                    })
+                    .catch((err) => {
+                      // console.log(
+                      //   "tab updated: no data found for tab. Creating new row"
+                      // );
+                      addToHistory(
+                        tab.sessionId,
+                        tab.id,
+                        tab.windowId,
+                        tab.url,
+                        Date.now(),
+                        null
+                      )
+                        .then(() => {
+                          // console.log(
+                          //   "tab updated: added to history cause browsed to new url"
+                          // );
+                        })
+                        .catch((err) => {
+                          // console.log("tab updated: error adding to history");
+                        });
+                    });
+                }
+              })
+              .catch((err) => {
+                // console.log("tab updated: error updating current tab info");
+              });
+          })
+          .catch((err) => {
+            // console.log("tab updated: error update end timie for previous tab");
+          });
+      })
+      .catch((err) => {
+        console.log("Current tab info not found.");
+        addCurrentTab(tabId, tab.windowId, tab.sessionId, tab.url)
+          .then(() => {
+            console.log("Current tab info added");
+          })
+          .catch((err) => {
+            console.log("Error adding current tab info");
+          });
+      });
   }
 });
 
