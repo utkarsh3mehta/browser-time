@@ -1,3 +1,66 @@
+const dateLabel = document.querySelector("label#date");
+const flash = document.querySelector("label#flash");
+const form_domain = document.querySelector("form#domain-form");
+const table = document.getElementById("table-body");
+const prevLabel = document.getElementById("prev-day-label");
+const nextLabel = document.getElementById("next-day-label");
+const oneSecond = 1000;
+const oneMinute = oneSecond * 60;
+const oneHour = oneMinute * 60;
+const oneDay = oneHour * 24;
+const oneMonth = oneDay * 30;
+const oneYear = oneMonth * 12;
+const oneDecade = oneYear * 10;
+const oneCentury = oneDecade * 10;
+
+function timeFormatter(milliseconds = null) {
+  let timestring = "";
+  if (milliseconds) {
+    if (milliseconds >= oneSecond) {
+      if (milliseconds >= oneMinute) {
+        if (milliseconds >= oneHour) {
+          if (milliseconds >= oneDay) {
+            if (milliseconds >= oneMonth) {
+              if (milliseconds >= oneYear) {
+                if (milliseconds >= oneDecade) {
+                  if (milliseconds >= oneCentury) {
+                    let century = Math.floor(milliseconds / oneCentury);
+                    timestring += century + "C";
+                    milliseconds = milliseconds % oneCentury;
+                  }
+                  let decade = Math.floor(milliseconds / oneDecade);
+                  timestring += decade + "D";
+                  milliseconds = milliseconds % oneDecade;
+                }
+                let years = Math.floor(milliseconds / oneYear);
+                timestring += years + "y";
+                milliseconds = milliseconds % oneYear;
+              }
+              let months = Math.floor(milliseconds / oneMonth);
+              timestring += months + "M";
+              milliseconds = milliseconds % oneMonth;
+            }
+            let days = Math.floor(milliseconds / oneDay);
+            timestring += days + "d";
+            milliseconds = milliseconds % oneDay;
+          }
+          let hours = Math.floor(milliseconds / oneHour);
+          timestring += hours + "h";
+          milliseconds = milliseconds % oneHour;
+        }
+        let minutes = Math.floor(milliseconds / oneMinute);
+        timestring += minutes + "m";
+        milliseconds = milliseconds % oneMinute;
+      }
+      let seconds = Math.floor(milliseconds / oneSecond);
+      timestring += seconds + "s";
+    } else {
+      timestring = "0s";
+    }
+    return timestring;
+  } else return "0s";
+}
+
 function get_all(date = null) {
   if (date) {
     chrome.runtime.sendMessage({
@@ -13,19 +76,10 @@ function get_all(date = null) {
   }
 }
 
-const dateLabel = document.querySelector("label#date");
 window.addEventListener("load", (event) => {
   get_all();
   dateLabel.innerText = new Date().toDateString();
 });
-
-const flash = document.querySelector("label#flash");
-const form_domain = document.querySelector("form#domain-form");
-const table = document.getElementById("table-body");
-const prevLabel = document.getElementById("prev-day-label");
-const nextLabel = document.getElementById("next-day-label");
-const oneMinute = 1000 * 60;
-const oneHour = 1000 * 60 * 60;
 
 prevLabel.addEventListener("click", () => prevDate(dateLabel.innerText));
 nextLabel.addEventListener("click", () => nextDate(dateLabel.innerText));
@@ -66,16 +120,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         iconImage.style.width = "20px";
         iconImage.style.height = "20px";
         iconImage.style.objectFit = "none";
+        iconImage.style.verticalAlign = "bottom";
         iconColumn.appendChild(iconImage);
         row.appendChild(iconColumn);
         const countColumn = document.createElement("td");
         countColumn.innerText = `${quota.count}x`;
         row.appendChild(countColumn);
         const timespendColumn = document.createElement("td");
-        let timespent =
-          quota.timespent < oneHour
-            ? `${timespentNumber}m`
-            : `${timespentNumber}h`;
+        let timespent = timeFormatter(quota.timespent);
         timespendColumn.innerText = timespent;
         row.appendChild(timespendColumn);
         const overtimeColumn = document.createElement("td");
@@ -84,8 +136,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         row.appendChild(overtimeColumn);
         const quotaColumn = document.createElement("td");
         if (quota.quota) {
-          quotaColumn.innerText =
-            quota.quota < oneHour ? `${quotaNumber}m` : `${quotaNumber}h`;
+          quotaColumn.innerText = timeFormatter(quota.quota);
           quotaColumn.classList.add("quota");
         } else {
           let setActionButton = document.createElement("button");
