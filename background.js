@@ -473,7 +473,7 @@ chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
     "url" in changedInfo ||
     ("status" in changedInfo && changedInfo.status === "loading")
   ) {
-    console.log("tab updated: url changed");
+    // console.log("tab updated: url changed");
     getMetaDataByType("currentTab")
       .then((currentTab) => {
         // console.log("tab updated: get current tab: ", currentTab);
@@ -562,10 +562,13 @@ chrome.tabs.onUpdated.addListener((tabId, changedInfo, tab) => {
 });
 
 function ignoreURL(url) {
-  // console.log("ignored url function", url);
-  let protocol = new URL(url).protocol;
-  if (protocol === "chrome:") return false;
-  return true;
+  try {
+    let protocol = new URL(url).protocol;
+    if (protocol === "chrome:") return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function addQuota(url, domain, quota) {
