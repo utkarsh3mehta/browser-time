@@ -78,18 +78,18 @@ function get_all(date = null) {
 
 window.addEventListener("load", (event) => {
   get_all();
-  dateLabel.innerText = new Date().toDateString();
+  dateLabel.textContent = new Date().toDateString();
 });
 
-prevLabel.addEventListener("click", () => prevDate(dateLabel.innerText));
-nextLabel.addEventListener("click", () => nextDate(dateLabel.innerText));
+prevLabel.addEventListener("click", () => prevDate(dateLabel.textContent));
+nextLabel.addEventListener("click", () => nextDate(dateLabel.textContent));
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.message === "add_response") {
-    flash.innerText = request.payload
+    flash.textContent = request.payload
       ? "Quota added successfully"
       : "Error adding quota. Please try again or maybe quota for this domain already exists";
-    get_all(dateLabel.innerText);
+    get_all(dateLabel.textContent);
   } else if (request.message === "get_all_response") {
     if (request.payload) {
       const payload = request.payload;
@@ -116,25 +116,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         iconColumn.appendChild(iconImage);
         row.appendChild(iconColumn);
         const countColumn = document.createElement("td");
-        countColumn.innerText = `${quota.count}x`;
+        countColumn.textContent = `${quota.count}x`;
         row.appendChild(countColumn);
         const timespendColumn = document.createElement("td");
         let timespent = timeFormatter(quota.timespent);
-        timespendColumn.innerText = timespent;
+        timespendColumn.textContent = timespent;
         row.appendChild(timespendColumn);
         const overtimeColumn = document.createElement("td");
         overtimeColumn.classList.add("bad", "overtime");
-        overtimeColumn.innerText = overtime ? overtime : "";
+        overtimeColumn.textContent = overtime ? overtime : "";
         row.appendChild(overtimeColumn);
         const quotaColumn = document.createElement("td");
         quotaColumn.setAttribute("id", quota.url);
         if (quota.quota) {
-          quotaColumn.innerText = timeFormatter(quota.quota);
+          quotaColumn.textContent = timeFormatter(quota.quota);
           quotaColumn.classList.add("quota");
         } else {
           let setActionButton = document.createElement("button");
           setActionButton.classList.add("button", "pointer");
-          setActionButton.innerText = "Set";
+          setActionButton.textContent = "Set";
           setActionButton.setAttribute(
             "data-url",
             `${new URL(quota.url).protocol}//${quota.domain}`
@@ -148,7 +148,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         table.appendChild(row);
       });
     } else {
-      flash.innerText = "Error fetching quota list";
+      flash.textContent = "Error fetching quota list";
     }
   }
 });
@@ -207,8 +207,8 @@ function prevDate(now) {
   yesterday.setMinutes(0);
   yesterday.setSeconds(0);
   yesterday.setMilliseconds(0);
-  dateLabel.innerText = yesterday.toDateString();
-  flash.innerText = "";
+  dateLabel.textContent = yesterday.toDateString();
+  flash.textContent = "";
   flash.classList.remove("bad");
   get_all(yesterday);
 }
@@ -221,12 +221,12 @@ function nextDate(now) {
     tomorrow.setMinutes(0);
     tomorrow.setSeconds(0);
     tomorrow.setMilliseconds(0);
-    dateLabel.innerText = tomorrow.toDateString();
-    flash.innerText = "";
+    dateLabel.textContent = tomorrow.toDateString();
+    flash.textContent = "";
     flash.classList.remove("bad");
     get_all(tomorrow);
   } else {
-    flash.innerText = "Cannot be done.";
+    flash.textContent = "Cannot be done.";
     flash.classList.add("bad");
   }
 }
