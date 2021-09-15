@@ -1,6 +1,6 @@
 const dateLabel = document.querySelector("label#date");
 const flash = document.querySelector("label#flash");
-const form_domain = document.querySelector("form#domain-form");
+// const form_domain = document.querySelector("form#domain-form");
 const table = document.getElementById("table-body");
 const prevLabel = document.getElementById("prev-day-label");
 const nextLabel = document.getElementById("next-day-label");
@@ -96,14 +96,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       table.innerHTML = "";
       payload.forEach((quota) => {
         const row = document.createElement("tr");
-        let quotaNumber =
-          quota.quota < oneHour
-            ? (quota.quota / oneMinute).toFixed(1)
-            : (quota.quota / oneHour).toFixed(1);
-        let timespentNumber =
-          quota.timespent < oneHour
-            ? (quota.timespent / oneMinute).toFixed(1)
-            : (quota.timespent / oneHour).toFixed(1);
         let overtime =
           quota.quota && quota.timespent > quota.quota
             ? `+${((quota.timespent / quota.quota) * 100).toFixed(1)}%`
@@ -135,6 +127,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         overtimeColumn.innerText = overtime ? overtime : "";
         row.appendChild(overtimeColumn);
         const quotaColumn = document.createElement("td");
+        quotaColumn.setAttribute("id", quota.url);
         if (quota.quota) {
           quotaColumn.innerText = timeFormatter(quota.quota);
           quotaColumn.classList.add("quota");
@@ -147,7 +140,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             `${new URL(quota.url).protocol}//${quota.domain}`
           );
           setActionButton.addEventListener("click", () =>
-            setButtonClick(`${new URL(quota.url).protocol}//${quota.domain}`)
+            setButtonClick(quota.url)
           );
           quotaColumn.appendChild(setActionButton);
         }
@@ -160,29 +153,51 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-form_domain.addEventListener("submit", (event) => {
-  event.preventDefault();
-  let form_data = new FormData(form_domain);
-  let url = new URL(form_data.get("url"));
-  chrome.runtime.sendMessage({
-    message: "add",
-    payload: {
-      url: url,
-      domain: url.host,
-      quota: form_data.get("quota"),
-    },
-  });
-  let domain_input = document.getElementById("url");
-  let quota_input = document.getElementById("quota");
-  domain_input.value = "";
-  quota_input.value = "";
-});
-
 function setButtonClick(url) {
-  let domain_input = document.getElementById("url");
-  let quota_input = document.getElementById("quota");
-  domain_input.value = url;
-  quota_input.focus();
+  let tableElement = document.getElementById(url);
+  const addForm = document.createElement("form");
+  const inputURL = document.createElement("input");
+  const inputQuota = document.createElement("input");
+  const addButton = document.createElement("button");
+  inputURL.setAttribute("type", "url");
+  inputURL.setAttribute("name", "url");
+  inputURL.setAttribute("id", "url");
+  inputURL.value = url;
+  inputURL.style.display = "none";
+  inputQuota.setAttribute("type", "number");
+  inputQuota.setAttribute("name", "quota");
+  inputQuota.setAttribute("id", "quota");
+  inputQuota.setAttribute("placeholder", "Set quota (minutes)");
+  inputQuota.classList.add("p-half");
+  inputQuota.focus();
+  addButton.innerText = "Add";
+  addButton.setAttribute("type", "submit");
+  addButton.classList.add("px-half");
+  addForm.appendChild(inputURL);
+  addForm.appendChild(inputQuota);
+  addForm.appendChild(addButton);
+  addForm.classList.add("d-flex", "p-half", "c-g-half");
+  addForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    let form_data = new FormData(addForm);
+    let form_url = new URL(form_data.get("url"));
+    // console.log("submitting form for ", url);
+    // console.log("form url ", form_url);
+    chrome.runtime.sendMessage({
+      message: "add",
+      payload: {
+        url: url,
+        domain: form_url.host,
+        quota: form_data.get("quota"),
+      },
+    });
+  });
+  tableElement.innerHTML = "";
+  tableElement.appendChild(addForm);
+  // let domain_input = document.getElementById("url");
+  // let quota_input = document.getElementById("quota");
+  // domain_input.value = url;
+  // quota_input.focus();
 }
 
 function prevDate(now) {
