@@ -167,12 +167,11 @@ function setButtonClick(url) {
   inputQuota.setAttribute("type", "number");
   inputQuota.setAttribute("name", "quota");
   inputQuota.setAttribute("id", "quota");
+  inputQuota.setAttribute("max", 999);
   inputQuota.setAttribute("placeholder", "Set quota (minutes)");
-  inputQuota.classList.add("p-half");
-  inputQuota.focus();
-  addButton.innerText = "Add";
+  inputQuota.classList.add("p-half", "col-12");
+  addButton.textContent = "Add";
   addButton.setAttribute("type", "submit");
-  addButton.classList.add("px-half");
   addForm.appendChild(inputURL);
   addForm.appendChild(inputQuota);
   addForm.appendChild(addButton);
@@ -194,6 +193,7 @@ function setButtonClick(url) {
   });
   tableElement.innerHTML = "";
   tableElement.appendChild(addForm);
+  inputQuota.focus();
   // let domain_input = document.getElementById("url");
   // let quota_input = document.getElementById("quota");
   // domain_input.value = url;
