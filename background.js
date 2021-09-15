@@ -7,11 +7,15 @@ const dbversion = 10,
   faviconTableName = "faviconv" + dbversion;
 // history v7: added index tabId, windowId, url and date
 // v10: no history at begining
+
 const oneSecond = 1000;
-const oneMinute = 60 * 1000;
-const defaultTimespent = 60 * 1000;
-const maxHistoryResult = 500;
-const onboardingLoadTime = 5000;
+const oneMinute = oneSecond * 60;
+const oneHour = oneMinute * 60;
+const oneDay = oneHour * 24;
+
+const defaultTimespent = oneMinute;
+const maxHistoryResult = 1;
+const onboardingLoadTime = 1000;
 
 chrome.runtime.onInstalled.addListener(() => {
   if (!window.indexedDB) {
@@ -68,56 +72,56 @@ chrome.runtime.onInstalled.addListener(() => {
         keypath: "domain",
       });
       favicon.createIndex("domain", "domain", { unique: true });
-      // wait 5 seconds;
-      // setTimeout(() => {
-      //   // fetching history items from previous start days and maxHistoryResult records
-      //   const now = new Date();
-      //   now.setDate(now.getDate() - 5);
-      //   now.setHours(0);
-      //   now.setMinutes(0);
-      //   now.setSeconds(0);
-      //   const start = now.setMilliseconds(0);
-      //   chrome.history.search(
-      //     {
-      //       text: "",
-      //       startTime: start,
-      //       maxResults: maxHistoryResult,
-      //     },
-      //     (historyItems) => {
-      //       for (const hI of historyItems) {
-      //         let url = new URL(hI.url);
-      //         chrome.history.getVisits({ url: hI.url }, (visitItems) => {
-      //           let now = new Date().toISOString();
-      //           for (const vI of visitItems) {
-      //             const addHistoryTransaction = db.transaction(
-      //               historyTableName,
-      //               "readwrite"
-      //             );
-      //             const historyStore =
-      //               addHistoryTransaction.objectStore(historyTableName);
-      //             addHistoryTransaction.onerror = function (err) {};
-      //             addHistoryTransaction.oncomplete = function () {};
-      //             let request = historyStore.add({
-      //               url: hI.url,
-      //               domain: url.host,
-      //               tabId: null,
-      //               windowId: null,
-      //               sessionId: null,
-      //               createdAt: now,
-      //               lastUpdatedAt: now,
-      //               starttime: vI.visitTime,
-      //               endtime: vI.visitTime + defaultTimespent,
-      //               date: new Date(vI.visitTime).toDateString(),
-      //               timespent: defaultTimespent,
-      //               count: 1,
-      //             });
-      //             request.onsuccess = function () {};
-      //           }
-      //         });
-      //       }
-      //     }
-      //   );
-      // }, onboardingLoadTime);
+      // wait 1 seconds;
+      setTimeout(() => {
+        // fetching history items from previous start days and maxHistoryResult records
+        const now = new Date();
+        now.setDate(now.getDate() - 5);
+        now.setHours(0);
+        now.setMinutes(0);
+        now.setSeconds(0);
+        const start = now.setMilliseconds(0);
+        chrome.history.search(
+          {
+            text: "",
+            startTime: start,
+            maxResults: maxHistoryResult,
+          },
+          (historyItems) => {
+            for (const hI of historyItems) {
+              let url = new URL(hI.url);
+              chrome.history.getVisits({ url: hI.url }, (visitItems) => {
+                let now = new Date().toISOString();
+                for (const vI of visitItems) {
+                  const addHistoryTransaction = db.transaction(
+                    historyTableName,
+                    "readwrite"
+                  );
+                  const historyStore =
+                    addHistoryTransaction.objectStore(historyTableName);
+                  addHistoryTransaction.onerror = function (err) {};
+                  addHistoryTransaction.oncomplete = function () {};
+                  let request = historyStore.add({
+                    url: hI.url,
+                    domain: url.host,
+                    tabId: null,
+                    windowId: null,
+                    sessionId: null,
+                    createdAt: now,
+                    lastUpdatedAt: now,
+                    starttime: vI.visitTime,
+                    endtime: vI.visitTime + defaultTimespent,
+                    date: new Date(vI.visitTime).toDateString(),
+                    timespent: defaultTimespent,
+                    count: 1,
+                  });
+                  request.onsuccess = function () {};
+                }
+              });
+            }
+          }
+        );
+      }, onboardingLoadTime);
     };
     request.onsuccess = function (ev) {
       db = request.result;
