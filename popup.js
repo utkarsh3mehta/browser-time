@@ -25,31 +25,31 @@ function timeFormatter(milliseconds = null) {
                 if (milliseconds >= oneDecade) {
                   if (milliseconds >= oneCentury) {
                     let century = Math.floor(milliseconds / oneCentury);
-                    timestring += century + "C";
+                    timestring += century + "C\u00a0";
                     milliseconds = milliseconds % oneCentury;
                   }
                   let decade = Math.floor(milliseconds / oneDecade);
-                  timestring += decade + "D";
+                  timestring += decade + "D\u00a0";
                   milliseconds = milliseconds % oneDecade;
                 }
                 let years = Math.floor(milliseconds / oneYear);
-                timestring += years + "y";
+                timestring += years + "y\u00a0";
                 milliseconds = milliseconds % oneYear;
               }
               let months = Math.floor(milliseconds / oneMonth);
-              timestring += months + "M";
+              timestring += months + "M\u00a0";
               milliseconds = milliseconds % oneMonth;
             }
             let days = Math.floor(milliseconds / oneDay);
-            timestring += days + "d";
+            timestring += days + "d\u00a0";
             milliseconds = milliseconds % oneDay;
           }
           let hours = Math.floor(milliseconds / oneHour);
-          timestring += hours + "h";
+          timestring += hours + "h\u00a0";
           milliseconds = milliseconds % oneHour;
         }
         let minutes = Math.floor(milliseconds / oneMinute);
-        timestring += minutes + "m";
+        timestring += minutes + "m\u00a0";
         milliseconds = milliseconds % oneMinute;
       }
       let seconds = Math.floor(milliseconds / oneSecond);
