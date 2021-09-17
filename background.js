@@ -131,34 +131,37 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.message === "add") {
-    let dbrequest = addQuota(
+    addQuota(
       request.payload.url,
       request.payload.domain,
       request.payload.quota
-    );
-    dbrequest.then((res) => {
+    ).then((res) => {
       chrome.runtime.sendMessage({
         message: "add_response",
         payload: res,
       });
     });
   } else if (request.message === "get_all") {
-    let dbrequest;
     if (request.payload) {
-      dbrequest = getList(request.payload.date);
-    } else {
-      dbrequest = getList();
-    }
-    dbrequest.then((res) => {
-      chrome.runtime.sendMessage({
-        message: "get_all_response",
-        payload: res,
+      console.log("request payload", request.payload);
+      console.log("get list", getList);
+      getList(request.payload.date).then((res) => {
+        chrome.runtime.sendMessage({
+          message: "get_all_response",
+          payload: res,
+        });
       });
-    });
+    } else {
+      console.log("get list", getList);
+      getList().then((res) => {
+        chrome.runtime.sendMessage({
+          message: "get_all_response",
+          payload: res,
+        });
+      });
+    }
   } else if (request.message === "get_favIcon") {
-    let dbrequest = getFavicon(request.payload.domain);
-    dbrequest
-      .then((data) => {
+    getFavicon(request.payload.domain).then((data) => {
         chrome.runtime.sendMessage({
           message: "get_favIcon_response",
           payload: data,
