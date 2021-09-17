@@ -9,9 +9,6 @@ const oneMinute = oneSecond * 60;
 const oneHour = oneMinute * 60;
 const oneDay = oneHour * 24;
 const oneMonth = oneDay * 30;
-const oneYear = oneMonth * 12;
-const oneDecade = oneYear * 10;
-const oneCentury = oneDecade * 10;
 
 function timeFormatter(milliseconds = null) {
   let timestring = "";
@@ -21,21 +18,6 @@ function timeFormatter(milliseconds = null) {
         if (milliseconds >= oneHour) {
           if (milliseconds >= oneDay) {
             if (milliseconds >= oneMonth) {
-              if (milliseconds >= oneYear) {
-                if (milliseconds >= oneDecade) {
-                  if (milliseconds >= oneCentury) {
-                    let century = Math.floor(milliseconds / oneCentury);
-                    timestring += century + "C\u00a0";
-                    milliseconds = milliseconds % oneCentury;
-                  }
-                  let decade = Math.floor(milliseconds / oneDecade);
-                  timestring += decade + "D\u00a0";
-                  milliseconds = milliseconds % oneDecade;
-                }
-                let years = Math.floor(milliseconds / oneYear);
-                timestring += years + "y\u00a0";
-                milliseconds = milliseconds % oneYear;
-              }
               let months = Math.floor(milliseconds / oneMonth);
               timestring += months + "M\u00a0";
               milliseconds = milliseconds % oneMonth;
