@@ -17,6 +17,39 @@ const defaultTimespent = oneMinute;
 const maxHistoryResult = 1;
 const onboardingLoadTime = 1000;
 
+function timeFormatter(milliseconds) {
+  let timestring = "";
+  if (milliseconds) {
+    if (milliseconds >= oneSecond) {
+      if (milliseconds >= oneMinute) {
+        if (milliseconds >= oneHour) {
+          if (milliseconds >= oneDay) {
+            if (milliseconds >= oneMonth) {
+              let months = Math.floor(milliseconds / oneMonth);
+              timestring = months + "M\u00a0";
+              return timestring;
+            }
+            let days = Math.floor(milliseconds / oneDay);
+            timestring = days + "d\u00a0";
+            return timestring;
+          }
+          let hours = Math.floor(milliseconds / oneHour);
+          timestring = hours + "h\u00a0";
+          return timestring;
+        }
+        let minutes = Math.floor(milliseconds / oneMinute);
+        timestring = minutes + "m\u00a0";
+        return timestring;
+      }
+      let seconds = Math.floor(milliseconds / oneSecond);
+      timestring = seconds + "s";
+    } else {
+      timestring = "0s";
+    }
+    return timestring;
+  } else return "0s";
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   if (!window.indexedDB) {
     console.error(
@@ -161,7 +194,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     }
   } else if (request.message === "get_favIcon") {
-    getFavicon(request.payload.domain).then((data) => {
+    getFavicon(request.payload.domain)
+      .then((data) => {
         chrome.runtime.sendMessage({
           message: "get_favIcon_response",
           payload: data,
@@ -196,6 +230,11 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
                 currentTab.windowId,
                 currentTab.url
               );
+              console.log("setting badge text for previous tab to null");
+              // chrome.browserAction.setBadgeText({
+              //   tabId: currentTab.tabId,
+              //   text: "",
+              // });
             })
             .catch((err) => {
               console.error(
@@ -262,7 +301,15 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
                             h.windowId,
                             h.url,
                             h.date
-                          )
+                          ).then(() => {
+                            console.log(
+                              "setting badge text for previous tab to null"
+                            );
+                            // chrome.browserAction.setBadgeText({
+                            //   tabId: currentTab.tabId,
+                            //   text: "",
+                            // });
+                          })
                         );
                     } else {
                       console.log(
@@ -316,6 +363,11 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
               console.log(
                 "tab activated: get current tab: update history end time"
               );
+              console.log("setting badge text for previous tab to null");
+              // chrome.browserAction.setBadgeText({
+              //   tabId: currentTab.tabId,
+              //   text: "",
+              // });
             })
             .catch((err) => {
               console.error(
@@ -350,7 +402,17 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
                       .filter((h) => h.date === new Date().toDateString())
                       .filter((h) => h.tabId !== tabId)
                       .forEach((h) =>
-                        updateHistoryEndtime(h.tabId, h.windowId, h.url, h.date)
+                        updateHistoryEndtime(
+                          h.tabId,
+                          h.windowId,
+                          h.url,
+                          h.date
+                        ).then(() => {
+                          // chrome.browserAction.setBadgeText({
+                          //   tabId: h.tabId,
+                          //   text: "",
+                          // });
+                        })
                       );
                   } else {
                     console.log(
@@ -389,6 +451,19 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
         });
     }
   });
+  console.log("tab activated: all tasks done");
+  // chrome.browserAction.setBadgeText({
+  //   text: "",
+  // });
+  // let start = new Date().getTime();
+  // setInterval(() => {
+  //   let now = new Date().getTime();
+  //   let diff = now - start;
+  //   console.log("setting badge for tab ID", tabId, timeFormatter(diff));
+  //   // chrome.browserAction.setBadgeText({
+  //   //   text: timeFormatter(diff),
+  //   // });
+  // }, 1000);
 });
 
 chrome.tabs.onCreated.addListener((tab) => {
