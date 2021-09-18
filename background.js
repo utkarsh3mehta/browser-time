@@ -24,11 +24,6 @@ function timeFormatter(milliseconds) {
       if (milliseconds >= oneMinute) {
         if (milliseconds >= oneHour) {
           if (milliseconds >= oneDay) {
-            if (milliseconds >= oneMonth) {
-              let months = Math.floor(milliseconds / oneMonth);
-              timestring = months + "M\u00a0";
-              return timestring;
-            }
             let days = Math.floor(milliseconds / oneDay);
             timestring = days + "d\u00a0";
             return timestring;
