@@ -117,10 +117,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           let setActionButton = document.createElement("button");
           setActionButton.classList.add("button", "pointer");
           setActionButton.textContent = "Set";
-          setActionButton.setAttribute(
-            "data-url",
-            `${new URL(quota.url).protocol}//${quota.domain}`
-          );
           setActionButton.addEventListener("click", () =>
             setButtonClick(quota.url)
           );
@@ -141,6 +137,7 @@ function setButtonClick(url) {
   const inputURL = document.createElement("input");
   const inputQuota = document.createElement("input");
   const addButton = document.createElement("button");
+  const cancelLabel = document.createElement("label");
   inputURL.setAttribute("type", "url");
   inputURL.setAttribute("name", "url");
   inputURL.setAttribute("id", "url");
@@ -150,14 +147,28 @@ function setButtonClick(url) {
   inputQuota.setAttribute("name", "quota");
   inputQuota.setAttribute("id", "quota");
   inputQuota.setAttribute("max", 999);
-  inputQuota.setAttribute("placeholder", "Set quota (minutes)");
+  inputQuota.setAttribute("placeholder", "minutes");
   inputQuota.classList.add("p-half", "col-12");
-  addButton.textContent = "Add";
+  addButton.textContent = "+";
   addButton.setAttribute("type", "submit");
+  addButton.classList.add("p-half", "add-button", "pointer");
+  cancelLabel.textContent = "x";
+  cancelLabel.classList.add("p-half", "add-button", "bad", "pointer");
+  cancelLabel.style.fontWeight = "lighter";
+  cancelLabel.style.lineHeight = "15px";
+  cancelLabel.addEventListener("click", (event) => {
+    let setActionButton = document.createElement("button");
+    setActionButton.classList.add("button", "pointer");
+    setActionButton.textContent = "Set";
+    setActionButton.addEventListener("click", () => setButtonClick(url));
+    tableElement.innerHTML = "";
+    tableElement.appendChild(setActionButton);
+  });
   addForm.appendChild(inputURL);
   addForm.appendChild(inputQuota);
   addForm.appendChild(addButton);
-  addForm.classList.add("d-flex", "p-half", "c-g-half");
+  addForm.appendChild(cancelLabel);
+  addForm.classList.add("d-flex", "align-center", "p-half", "c-g-half");
   addForm.addEventListener("submit", (event) => {
     event.preventDefault();
     let form_data = new FormData(addForm);
