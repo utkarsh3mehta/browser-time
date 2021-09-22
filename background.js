@@ -552,6 +552,9 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
       //   "tab removed: error from getHistoryTabDateKey: no list found."
       // );
     });
+  try {
+    clearInterval(tabsInterval[removeInfo.windowId][tabId]);
+  } catch {}
 });
 
 chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
