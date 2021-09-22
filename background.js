@@ -161,7 +161,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       });
     }
   } else if (request.message === "get_favIcon") {
-    getFavicon(request.payload.domain).then((data) => {
+    getFavicon(request.payload.domain)
+      .then((data) => {
         chrome.runtime.sendMessage({
           message: "get_favIcon_response",
           payload: data,
@@ -593,6 +594,8 @@ function addQuota(url, domain, quota) {
       };
       quotaStore.add({ url, domain, quota: quota * oneMinute });
     });
+  } else {
+    return Promise.resolve(false);
   }
 }
 
@@ -707,7 +710,7 @@ function getList(date = null) {
                 if (todayQuotaResults.length !== 0) {
                   let domain = q.domain;
                   let count = todayQuotaResults
-                    .map((r) => ("count" in r ** !!r.count ? r.count : 0))
+                    .map((r) => ("count" in r && r.count ? r.count : 0))
                     .reduce((acc, (next) => acc + next), 0);
                   let timespent = todayQuotaResults
                     .map((r) =>
@@ -741,7 +744,7 @@ function getList(date = null) {
         // });
       };
     });
-  }
+  } else return Promise.resolve(false);
 }
 
 function getHistoryUrlKey(tabId, windowId, url) {
@@ -772,7 +775,7 @@ function getHistoryUrlKey(tabId, windowId, url) {
         }
       };
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function getHistoryUrlValue(tabId, windowId, url) {
@@ -808,7 +811,7 @@ function getHistoryUrlValue(tabId, windowId, url) {
         };
       });
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function getHistoryDateValue(windowId, date) {
@@ -844,7 +847,7 @@ function getHistoryDateValue(windowId, date) {
         }
       };
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function getHistoryTabDateKey(tabId, windowId, date) {
@@ -877,7 +880,7 @@ function getHistoryTabDateKey(tabId, windowId, date) {
         }
       };
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function getHistoryTabUrlDateKey(tabId, windowId, url, date) {
@@ -910,7 +913,7 @@ function getHistoryTabUrlDateKey(tabId, windowId, url, date) {
         }
       };
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function getHistoryTabUrlDateValue(tabId, windowId, url, date) {
@@ -955,7 +958,7 @@ function getHistoryTabUrlDateValue(tabId, windowId, url, date) {
         };
       });
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function getHistoryDataByKey(key) {
@@ -986,7 +989,7 @@ function getHistoryDataByKey(key) {
         }
       };
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function getMetaData() {
@@ -1010,7 +1013,7 @@ function getMetaData() {
         else reject(new Error("No data in meta data"));
       };
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function getMetaDataByType(type) {
@@ -1044,7 +1047,7 @@ function getMetaDataByType(type) {
         }
       };
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function addToHistory(
@@ -1127,7 +1130,7 @@ function addToHistory(
           });
         }
       });
-    }
+    } else return Promise.reject(new Error("Error connecting to DB"));
   } else return Promise.resolve(true);
 }
 
@@ -1159,7 +1162,7 @@ function addCurrentTab(tabId, windowId, sessionId, url) {
         "currentTab"
       );
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function updateCurrentTab(tabId, windowId, sessionId, url) {
@@ -1198,7 +1201,7 @@ function updateCurrentTab(tabId, windowId, sessionId, url) {
           .then(() => Promise.resolve(true))
           .catch((err) => Promise.reject(err));
       });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function updateHistoryStarttime(tabId, windowId, url, date) {
@@ -1277,7 +1280,7 @@ function updateHistoryStarttime(tabId, windowId, url, date) {
             )
           );
       });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function updateHistoryEndtime(tabId, windowId, url, date) {
@@ -1354,7 +1357,7 @@ function updateHistoryEndtime(tabId, windowId, url, date) {
             )
           );
       });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function createFavicon(domain, favIconUrl) {
@@ -1370,7 +1373,7 @@ function createFavicon(domain, favIconUrl) {
       };
       faviconStore.add({ domain, favIconUrl }, domain);
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function getFavicon(domain) {
@@ -1392,7 +1395,7 @@ function getFavicon(domain) {
         else reject(new Error(`No favicon found for domain ${domain}`));
       };
     });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
 
 function updateFavicon(domain, favIconUrl) {
@@ -1421,5 +1424,5 @@ function updateFavicon(domain, favIconUrl) {
           .then(() => Promise.resolve(true))
           .catch((err) => Promise.reject(err));
       });
-  }
+  } else return Promise.reject(new Error("Error connecting to DB"));
 }
