@@ -17,6 +17,8 @@ const defaultTimespent = oneMinute;
 const maxHistoryResult = 1;
 const onboardingLoadTime = 1000;
 
+let tabsInterval = {};
+
 function timeFormatter(milliseconds) {
   let timestring = "";
   if (milliseconds) {
@@ -207,6 +209,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
   // console.log("tab activated");
+  // console.log("tab activated", tabsInterval);
   chrome.tabs.get(tabId, (tab) => {
     if (ignoreURL(tab.url)) {
       getMetaDataByType("currentTab")
@@ -219,32 +222,12 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
             new Date().toDateString()
           )
             .then(() => {
-              console.log(
-                "tab activated: get current tab: updated history end time for ",
-                currentTab.tabId,
-                currentTab.windowId,
-                currentTab.url
-              );
-              console.log(
-                "setting badge text for",
-                currentTab.tabId,
-                "to null"
-              );
-              chrome.browserAction.setBadgeText({
-                tabId: currentTab.tabId,
-                text: "",
-              });
-              chrome.browserAction.getBadgeText(
-                { tabId: currentTab.tabId },
-                (text) => {
-                  console.log(
-                    "badge text for tab ID",
-                    currentTab.tabId,
-                    "is",
-                    text
-                  );
-                }
-              );
+              // console.log(
+              //   "tab activated: get current tab: updated history end time for ",
+              //   currentTab.tabId,
+              //   currentTab.windowId,
+              //   currentTab.url
+              // );
             })
             .catch((err) => {
               // console.error(
@@ -258,27 +241,12 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
             new Date().toDateString()
           )
             .then(() => {
-              console.log(
-                "tab activated: get current tab: updated history start time for ",
-                tabId,
-                windowId,
-                tab.url
-              );
-              console.log("setting badge text after updating start time");
-              let start = new Date().getTime();
-              setInterval(() => {
-                let now = new Date().getTime();
-                let diff = now - start;
-                console.log(
-                  "setting badge for tab ID",
-                  tabId,
-                  timeFormatter(diff)
-                );
-                chrome.browserAction.setBadgeText({
-                  tabId: tabId,
-                  text: timeFormatter(diff),
-                });
-              }, 1000);
+              // console.log(
+              //   "tab activated: get current tab: updated history start time for ",
+              //   tabId,
+              //   windowId,
+              //   tab.url
+              // );
             })
             .catch((err) => {
               // console.error(
@@ -326,17 +294,7 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
                             h.windowId,
                             h.url,
                             h.date
-                          ).then(() => {
-                            console.log(
-                              "setting badge text for",
-                              h.tabId,
-                              "to null"
-                            );
-                            chrome.browserAction.setBadgeText({
-                              tabId: h.tabId,
-                              text: "",
-                            });
-                          })
+                          ).then(() => {})
                         );
                     } else {
                       // console.log(
@@ -387,29 +345,9 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
             new Date().toDateString()
           )
             .then(() => {
-              console.log(
-                "tab activated: get current tab: update history end time"
-              );
-              console.log(
-                "setting badge text for",
-                currentTab.tabId,
-                "to null"
-              );
-              chrome.browserAction.setBadgeText({
-                tabId: currentTab.tabId,
-                text: "",
-              });
-              chrome.browserAction.getBadgeText(
-                { tabId: currentTab.tabId },
-                (text) => {
-                  console.log(
-                    "Badge text for tab",
-                    currentTab.tabId,
-                    "is",
-                    text
-                  );
-                }
-              );
+              // console.log(
+              //   "tab activated: get current tab: update history end time"
+              // );
             })
             .catch((err) => {
               // console.error(
@@ -449,12 +387,7 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
                           h.windowId,
                           h.url,
                           h.date
-                        ).then(() => {
-                          chrome.browserAction.setBadgeText({
-                            tabId: h.tabId,
-                            text: "",
-                          });
-                        })
+                        ).then(() => {})
                       );
                   } else {
                     // console.log(
@@ -493,30 +426,71 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
         });
     }
   });
-  console.log("tab activated: all tasks done");
-  console.log("all tasks done: setting badge text for this tab to tabId");
-  chrome.browserAction.setBadgeText({
-    tabId: tabId,
-    text: "",
+  // console.log("tab activated: all tasks done");
+  // console.log("all tasks done: setting badge text for this tab to tabId");
+  chrome.browserAction.getBadgeText({ tabId: tabId }, (text) => {
+    // console.log("getting badge info at the start of the function");
+    // console.log("badge for tab", tabId, "is", text);
+    if (text) {
+      // console.log("tab badge text found");
+      // console.log("interval ID", x);
+      // console.log("interval ID", y)
+      // console.log(
+      //   "clearing interval for",
+      //   tabId,
+      //   "interval ID",
+      //   tabsInterval[windowId][tabId]
+      // );
+      try {
+        clearInterval(tabsInterval[windowId][tabId]);
+      } catch {}
+      chrome.browserAction.setBadgeText(
+        {
+          tabId: tabId,
+          text: "",
+        },
+        () => {
+          // console.log("set badge text to null");
+          // console.log("interval ID", x);
+          // console.log("interval ID", y)
+          let start = new Date().getTime();
+          if (!(windowId in tabsInterval)) {
+            tabsInterval[windowId] = {};
+          }
+          tabsInterval[windowId][tabId] = setInterval(() => {
+            let now = new Date().getTime();
+            let diff = now - start;
+            // console.log(tabId, timeFormatter(diff));
+            chrome.browserAction.setBadgeText({
+              tabId: tabId,
+              text: timeFormatter(diff),
+            });
+          }, 1000);
+          // console.log("set interval ID y", y);
+        }
+      );
+    } else {
+      // console.log("tab badge text not found");
+      let start = new Date().getTime();
+      if (!(windowId in tabsInterval)) {
+        tabsInterval[windowId] = {};
+      }
+      tabsInterval[windowId][tabId] = setInterval(() => {
+        let now = new Date().getTime();
+        let diff = now - start;
+        // console.log(tabId, timeFormatter(diff));
+        chrome.browserAction.setBadgeText({
+          tabId: tabId,
+          text: timeFormatter(diff),
+        });
+      }, 1000);
+      // console.log('set interval ID x', x);
+      // console.log("interval ID", x);
+      // console.log("interval ID", y)
+      // console.log("end", tabsInterval);
+    }
   });
-  // chrome.browserAction.setBadgeText(
-  //   {
-  //     tabId: tabId,
-  //     text: '',
-  //   },
-  //   () => {
-  //     let start = new Date().getTime();
-  //     setInterval(() => {
-  //       let now = new Date().getTime();
-  //       let diff = now - start;
-  //       console.log("setting badge for tab ID", tabId, timeFormatter(diff));
-  //       chrome.browserAction.setBadgeText({
-  //         tabId: tabId,
-  //         text: timeFormatter(diff),
-  //       });
-  //     }, 1000);
-  //   }
-  // );
+  // console.log(tabsInterval);
 });
 
 chrome.tabs.onCreated.addListener((tab) => {
