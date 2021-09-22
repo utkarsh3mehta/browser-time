@@ -1322,7 +1322,16 @@ function updateHistoryEndtime(tabId, windowId, url, date) {
               data["endtime"] = Date.now();
               if (!("timespent" in data)) {
                 data["timespent"] = 0 + data["endtime"] - data["starttime"];
-              } else if ("timestamp" in data && data["timestamp"] === NaN) {
+              } else if ("timespent" in data && data["timespent"] === NaN) {
+                // NaN cause either start time or endtime is "undefined"
+                // is start time undefined
+                if (!data["starttime"]) {
+                  data["starttime"] = Date.now() - oneSecond;
+                }
+                // is end time undefined
+                if (!data["endtime"]) {
+                  data["endtime"] = Date.now();
+                }
                 data["timespent"] = 0 + data["endtime"] - data["starttime"];
               } else {
                 data["timespent"] =
