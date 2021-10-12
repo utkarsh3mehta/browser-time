@@ -286,7 +286,6 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
                       //   "list of other tabs of same window and date found"
                       // );
                       list
-                        .filter((h) => h.date === new Date().toDateString())
                         .filter((h) => h.tabId !== tabId)
                         .forEach((h) =>
                           updateHistoryEndtime(
@@ -379,7 +378,6 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
                     //   "list of other tabs of same window and date found"
                     // );
                     list
-                      .filter((h) => h.date === new Date().toDateString())
                       .filter((h) => h.tabId !== tabId)
                       .forEach((h) =>
                         updateHistoryEndtime(
