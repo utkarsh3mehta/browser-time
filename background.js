@@ -493,7 +493,7 @@ chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
 
 chrome.tabs.onCreated.addListener((tab) => {
   // console.log("tab created");
-  if (tab.pendingUrl && ignoreURL(tab.pendingUrl)) {
+  if ("pendingUrl" in tab && tab.pendingUrl && ignoreURL(tab.pendingUrl)) {
     addToHistory(
       tab.sessionId,
       tab.id,
@@ -1289,7 +1289,8 @@ function updateCurrentTab(tabId, windowId, sessionId, url) {
             // );
             reject(err);
           };
-          (currentTab.tabId = tabId), (currentTab.windowId = windowId);
+          currentTab.tabId = tabId;
+          currentTab.windowId = windowId;
           currentTab.sessionId = sessionId;
           currentTab.url = url;
           currentTabStore.put(currentTab, "currentTab");
