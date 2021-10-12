@@ -146,6 +146,7 @@ function setButtonClick(url) {
   inputQuota.setAttribute("type", "number");
   inputQuota.setAttribute("name", "quota");
   inputQuota.setAttribute("id", "quota");
+  inputQuota.setAttribute("min", 1);
   inputQuota.setAttribute("max", 999);
   inputQuota.setAttribute("placeholder", "minutes");
   inputQuota.classList.add("p-half", "col-12");
