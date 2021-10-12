@@ -1,44 +1,44 @@
 // variable initialation
 let db = null;
-const dbversion = 10,
-  quotaTableName = "quotav" + dbversion,
-  historyTableName = "historyv" + dbversion,
-  metaDataTableName = "metaDatav" + dbversion,
-  faviconTableName = "faviconv" + dbversion;
+const DB_VERSION = 10,
+  quotaTableName = "quotav" + DB_VERSION,
+  historyTableName = "historyv" + DB_VERSION,
+  metaDataTableName = "metaDatav" + DB_VERSION,
+  faviconTableName = "faviconv" + DB_VERSION;
 // history v7: added index tabId, windowId, url and date
 // v10: no history at begining
 
-const oneSecond = 1000;
-const oneMinute = oneSecond * 60;
-const oneHour = oneMinute * 60;
-const oneDay = oneHour * 24;
+const ONE_SECOND = 1000;
+const ONE_MINUTE = ONE_SECOND * 60;
+const ONE_HOUR = ONE_MINUTE * 60;
+const ONE_DAY = ONE_HOUR * 24;
 
-const defaultTimespent = oneMinute;
-const maxHistoryResult = 1;
-const onboardingLoadTime = 1000;
+const DEFAULT_TIMESPENT = ONE_MINUTE;
+const MAX_HISTORY_RESULT = 1;
+const ONBOARDING_LOAD_TIME = 1000;
 
 let tabsInterval = {};
 
 function timeFormatter(milliseconds) {
   let timestring = "";
   if (milliseconds) {
-    if (milliseconds >= oneSecond) {
-      if (milliseconds >= oneMinute) {
-        if (milliseconds >= oneHour) {
-          if (milliseconds >= oneDay) {
-            let days = Math.floor(milliseconds / oneDay);
+    if (milliseconds >= ONE_SECOND) {
+      if (milliseconds >= ONE_MINUTE) {
+        if (milliseconds >= ONE_HOUR) {
+          if (milliseconds >= ONE_DAY) {
+            let days = Math.floor(milliseconds / ONE_DAY);
             timestring = days + "d\u00a0";
             return timestring;
           }
-          let hours = Math.floor(milliseconds / oneHour);
+          let hours = Math.floor(milliseconds / ONE_HOUR);
           timestring = hours + "h\u00a0";
           return timestring;
         }
-        let minutes = Math.floor(milliseconds / oneMinute);
+        let minutes = Math.floor(milliseconds / ONE_MINUTE);
         timestring = minutes + "m\u00a0";
         return timestring;
       }
-      let seconds = Math.floor(milliseconds / oneSecond);
+      let seconds = Math.floor(milliseconds / ONE_SECOND);
       timestring = seconds + "s";
     } else {
       timestring = "0s";
@@ -115,7 +115,7 @@ chrome.runtime.onInstalled.addListener(() => {
           {
             text: "",
             startTime: start,
-            maxResults: maxHistoryResult,
+            maxResults: MAX_HISTORY_RESULT,
           },
           (historyItems) => {
             for (const hI of historyItems) {
@@ -140,9 +140,9 @@ chrome.runtime.onInstalled.addListener(() => {
                     createdAt: now,
                     lastUpdatedAt: now,
                     starttime: vI.visitTime,
-                    endtime: vI.visitTime + defaultTimespent,
+                    endtime: vI.visitTime + DEFAULT_TIMESPENT,
                     date: new Date(vI.visitTime).toDateString(),
-                    timespent: defaultTimespent,
+                    timespent: DEFAULT_TIMESPENT,
                     count: 1,
                   });
                   request.onsuccess = function () {};
@@ -151,7 +151,7 @@ chrome.runtime.onInstalled.addListener(() => {
             }
           }
         );
-      }, onboardingLoadTime);
+      }, ONBOARDING_LOAD_TIME);
     };
     request.onsuccess = function (ev) {
       db = request.result;
@@ -696,7 +696,7 @@ function addQuota(url, domain, quota) {
         // console.error("Quota adding transaction errored: ", err.stack || err);
         resolve(false);
       };
-      quotaStore.add({ url, domain, quota: quota * oneMinute });
+      quotaStore.add({ url, domain, quota: quota * ONE_MINUTE });
     });
   } else {
     return Promise.resolve(false);
@@ -1189,22 +1189,8 @@ function addToHistory(
         };
         let now = new Date().toISOString();
         if (starttime || endtime) {
-          if (starttime) {
-            // console.log("add to history: adding to history with start time");
-            historyStore.add({
-              tabId,
-              windowId,
-              url,
-              domain: new URL(url).host,
-              sessionId: sessionId,
-              createdAt: now,
-              lastUpdatedAt: now,
-              starttime,
-              count: 1,
-              date: new Date().toDateString(),
-            });
-          } else if (endtime) {
-            starttime = endtime - oneSecond;
+          if (endtime) {
+            starttime = endtime - ONE_SECOND;
             // console.log("add to history: adding to history with end time");
             historyStore.add({
               tabId,
@@ -1218,7 +1204,21 @@ function addToHistory(
               count: 1,
               date: new Date().toDateString(),
               endtime,
-              timespent: oneSecond,
+              timespent: ONE_SECOND,
+            });
+          } else if (starttime) {
+            // console.log("add to history: adding to history with start time");
+            historyStore.add({
+              tabId,
+              windowId,
+              url,
+              domain: new URL(url).host,
+              sessionId: sessionId,
+              createdAt: now,
+              lastUpdatedAt: now,
+              starttime,
+              count: 1,
+              date: new Date().toDateString(),
             });
           }
         } else {
@@ -1425,16 +1425,15 @@ function updateHistoryEndtime(tabId, windowId, url, date) {
               };
               data["endtime"] = Date.now();
               if (!("timespent" in data)) {
+                if (!data["starttime"]) {
+                  data["starttime"] = Date.now() - ONE_SECOND;
+                }
                 data["timespent"] = 0 + data["endtime"] - data["starttime"];
               } else if ("timespent" in data && data["timespent"] === NaN) {
                 // NaN cause either start time or endtime is "undefined"
                 // is start time undefined
                 if (!data["starttime"]) {
-                  data["starttime"] = Date.now() - oneSecond;
-                }
-                // is end time undefined
-                if (!data["endtime"]) {
-                  data["endtime"] = Date.now();
+                  data["starttime"] = Date.now() - ONE_SECOND;
                 }
                 data["timespent"] = 0 + data["endtime"] - data["starttime"];
               } else {
