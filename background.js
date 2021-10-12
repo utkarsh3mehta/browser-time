@@ -47,6 +47,19 @@ function timeFormatter(milliseconds) {
   } else return "0s";
 }
 
+chrome.runtime.onStartup.addListener(() => {
+  // console.log("runtime on startup");
+  const request = window.indexedDB.open("browserTime_db", DB_VERSION);
+  request.onerror = function (ev) {
+    console.error("Error opening DB:", ev.stack || ev);
+  };
+  // indexedDB found and opened successfully
+  request.onsuccess = function (ev) {
+    // console.log("indexed opened successfully");
+    db = request.result;
+  };
+});
+
 chrome.runtime.onInstalled.addListener(() => {
   if (!window.indexedDB) {
     console.error(
